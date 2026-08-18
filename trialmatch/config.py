@@ -29,11 +29,15 @@ class ModelConfig(BaseModel):
 # Change the model ids here — they are the only place a Gemini version is pinned.
 # gemini-2.5-pro is closed to new API accounts (404 at generate time as of
 # 2026-08-18); 3.1-pro-preview is the replacement Google's error message names.
+# Gemini 3.x models spend "thinking" tokens inside max_output_tokens, so the
+# caps are far higher than the Anthropic defaults or JSON gets truncated.
 GEMINI_MODELS = ModelConfig(
     provider="gemini",
     extract_model="gemini-3.5-flash",
     reason_model="gemini-3.1-pro-preview",
     report_model="gemini-3.5-flash",
+    max_tokens_extract=8192,
+    max_tokens_reason=16384,
 )
 
 def gemini_models_from_env() -> ModelConfig:

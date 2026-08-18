@@ -261,9 +261,14 @@ def _run_question_loop(
         if not targets:
             break
 
-        questions = generate_questions(
-            llm, profile, targets, parsed_by_nct, settings.models
-        )
+        try:
+            questions = generate_questions(
+                llm, profile, targets, parsed_by_nct, settings.models
+            )
+        except Exception as exc:  # noqa: BLE001 — assessments are already complete;
+            # a failed question round must not sink the ranking and report.
+            errors.append({"stage": "question_generation", "error": str(exc)})
+            break
         if not questions:
             break
 

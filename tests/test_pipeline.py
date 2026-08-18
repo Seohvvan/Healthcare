@@ -626,3 +626,39 @@ def test_cli_index_builds_and_saves_an_index(tmp_path, capsys) -> None:
 
     assert "indexed 4 trials" in capsys.readouterr().out
     assert len(BM25Index.load(out_path)) == 4
+
+
+def test_question_generation_failure_does_not_sink_the_run() -> None:
+    """A broken question round keeps the completed assessments and ranking.
+
+    Live incident: a truncated Gemini JSON response raised inside
+    `generate_questions` after all candidates were already assessed; the whole
+    run (and its report) was lost. The loop must record the error and fall
+    through to ranking instead.
+    """
+
+    class QuestionsExplodeLLM(ScriptedLLM):
+        def structured(self, **kwargs):
+            if kwargs["schema"] is QuestionBatch:
+                raise RuntimeError("truncated JSON from the provider")
+            return super().structured(**kwargs)
+
+    llm = QuestionsExplodeLLM(question_loop_scripts(EligibilityLabel.MET))
+    trials = {nct: TRIALS[nct] for nct in ("NCT0001", "NCT0002")}
+
+    recommendation, run_log = run_pipeline(
+        patient_id="S001",
+        note=NOTE,
+        trials=trials,
+        index=INDEX,
+        llm=llm,
+        settings=SETTINGS,
+        question_rounds=1,
+        answer_provider=lambda questions: [],
+    )
+
+    assert recommendation.ranked  # ranking survived the failed round
+    assert run_log["rounds"] == []  # the round never completed
+    assert any(
+        e.get("stage") == "question_generation" for e in run_log["errors"]
+    ), run_log["errors"]

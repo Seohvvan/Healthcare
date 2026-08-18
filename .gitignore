@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Data snapshots & run logs (large / regenerable; keep out of git)
+/data/
+/runs/
+
+# OS
+.DS_Store
+
+# Secrets — never commit credentials
+.env
+*.key

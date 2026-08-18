@@ -1,8 +1,8 @@
 """Command-line entry point: snapshot download, index build, and pipeline runs.
 
-Importing this module never touches the network or the Anthropic credentials:
-`LLMClient` creates its underlying client lazily, and every subcommand builds
-what it needs inside its own handler.
+Importing this module never touches the network or any provider credentials:
+the LLM clients create their underlying SDK object lazily, and every subcommand
+builds what it needs inside its own handler.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pathlib import Path
 from trialmatch.agents.prompts import SIMULATOR_UNKNOWN_ANSWER
 from trialmatch.config import Settings
 from trialmatch.data import download_snapshot, load_topics_json, load_trials
-from trialmatch.llm import LLMClient
+from trialmatch.llm import create_llm
 from trialmatch.pipeline import (
     AnswerProvider,
     run_pipeline,
@@ -68,6 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="ground-truth note answered by the Patient Simulator instead of a user",
     )
+    run.add_argument(
+        "--provider",
+        choices=["anthropic", "gemini"],
+        default="anthropic",
+        help="LLM provider; picks the model preset in config.py (default: anthropic)",
+    )
     run.add_argument("--save-log", action="store_true", help="write the run log JSON")
     run.set_defaults(handler=_cmd_run)
 
@@ -114,7 +120,7 @@ def _cmd_index(args: argparse.Namespace) -> int:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    settings = Settings()
+    settings = Settings().with_provider(args.provider)
 
     # Every user-supplied path is read here so a missing or unreadable file ends
     # the command with a one-line message and exit code 2, never a traceback.
@@ -135,7 +141,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(f"error: {exc}")
         return 2
 
-    llm = LLMClient()
+    llm = create_llm(settings.models)
 
     answer_provider: AnswerProvider | None
     if args.no_questions:

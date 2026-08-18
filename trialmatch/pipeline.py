@@ -27,7 +27,7 @@ from trialmatch.agents import (
 )
 from trialmatch.agents.prompts import is_unknown_answer
 from trialmatch.config import Settings
-from trialmatch.llm import LLMClient
+from trialmatch.llm import SupportsLLM
 from trialmatch.retrieval import BM25Index, rrf
 from trialmatch.schemas import (
     ClarifyingQuestion,
@@ -51,7 +51,7 @@ def run_pipeline(
     note: str,
     trials: dict[str, TrialRecord],
     index: BM25Index,
-    llm: LLMClient,
+    llm: SupportsLLM,
     settings: Settings,
     top_k: int = 5,
     question_rounds: int = 1,
@@ -130,7 +130,7 @@ def run_pipeline(
 
 
 def simulator_answer_provider(
-    llm: LLMClient, ground_truth_text: str, settings: Settings
+    llm: SupportsLLM, ground_truth_text: str, settings: Settings
 ) -> AnswerProvider:
     """Answer clarifying questions with the Patient Simulator agent.
 
@@ -193,7 +193,7 @@ def _retrieve(
 
 
 def _parse_candidates(
-    llm: LLMClient,
+    llm: SupportsLLM,
     candidate_ids: list[str],
     trials: dict[str, TrialRecord],
     settings: Settings,
@@ -225,7 +225,7 @@ def _parse_candidates(
 
 def _run_question_loop(
     *,
-    llm: LLMClient,
+    llm: SupportsLLM,
     profile: PatientProfile,
     trials: dict[str, TrialRecord],
     parsed_by_nct: dict[str, ParsedCriteria],

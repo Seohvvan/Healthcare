@@ -550,7 +550,7 @@ def test_cli_run_without_questions_prints_the_report(tmp_path, capsys, monkeypat
             ),
         }
     )
-    monkeypatch.setattr(cli, "LLMClient", lambda: llm)
+    monkeypatch.setattr(cli, "create_llm", lambda models: llm)
 
     exit_code = cli.main(
         [

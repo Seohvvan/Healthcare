@@ -93,6 +93,23 @@
 - 임베딩: MedCPT 또는 BGE-M3 (로컬). BM25: rank_bm25.
 - 오케스트레이션: Anthropic SDK tool-use 루프 직접 구현 (의존성 최소).
 
+**프로바이더 이중화 (실험 경로).** 위 Claude 티어링이 **기준 플랜**이고, 비교 실험용으로
+Google Gemini 경로를 추가한다 (`--provider gemini`).
+
+| 역할 | Claude (기준) | Gemini (실험) |
+|---|---|---|
+| 파싱·추출·시뮬레이터 | Haiku 4.5 | Gemini 2.5 Flash |
+| criterion 매칭·질문 생성 | Sonnet 5 | Gemini 2.5 Pro |
+| 최종 리포트 | Sonnet 5 / Opus 5 | Gemini 2.5 Flash |
+
+- 두 프로바이더는 `structured`/`text` **동일 인터페이스**(`trialmatch/llm.py`)로 감싸므로
+  에이전트·파이프라인 코드는 프로바이더를 알지 못한다. 모델 ID는 `config.py`의
+  `ModelConfig` / `GEMINI_MODELS` 한 곳에서만 바뀐다.
+- 캐싱 차이: Claude는 명시적 prompt caching 브레이크포인트(`cache_system=True`),
+  Gemini 2.5는 암묵적 캐싱이라 같은 인자를 받되 무시한다.
+- 자격증명은 각 SDK가 환경변수에서 읽는다 (`ANTHROPIC_API_KEY` / `GOOGLE_API_KEY`).
+  §5.2 벤치를 두 프로바이더로 각각 돌려 정확도·비용을 비교하는 것이 실험 목적.
+
 ## 5. 평가지표
 
 1. **Criterion 매칭**: 3분류 accuracy / macro-F1 / Cohen's κ — 수동 라벨 200~500쌍

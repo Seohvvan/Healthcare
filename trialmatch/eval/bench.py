@@ -36,7 +36,7 @@ from trialmatch.data.store import load_trials, write_jsonl
 from trialmatch.data.trec import load_qrels, load_topics_json, load_topics_xml
 from trialmatch.eval.metrics import macro_f1, three_class_accuracy
 from trialmatch.eval.run_trec import evaluate_rankings, format_table
-from trialmatch.llm import LLMClient
+from trialmatch.llm import SupportsLLM, create_llm
 from trialmatch.retrieval.bm25 import BM25Index
 from trialmatch.schemas import TrialAssessment, TrialLabel, TrialRecord
 
@@ -344,7 +344,7 @@ def _gain_to_label(gain: int) -> TrialLabel:
 
 
 def llm_judged_rerank(
-    llm: LLMClient,
+    llm: SupportsLLM,
     topics: Sequence[tuple[str, str]],
     qrels: Mapping[str, Mapping[str, int]],
     trials: Mapping[str, TrialRecord],
@@ -541,6 +541,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     llm.add_argument("--max-topics", type=int, default=DEFAULT_MAX_TOPICS)
     llm.add_argument("--candidates", type=int, default=DEFAULT_CANDIDATES_PER_TOPIC)
     llm.add_argument("--ks", default="5,10", type=_parse_ks, help="NDCG cutoffs, e.g. 5,10")
+    llm.add_argument(
+        "--provider",
+        choices=["anthropic", "gemini"],
+        default="anthropic",
+        help="LLM provider; picks the model preset in config.py (default: anthropic)",
+    )
     llm.add_argument("--out", type=Path, default=None, help="write the full result JSON here")
 
     args = parser.parse_args(argv)
@@ -569,12 +575,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     # `llm`: build the real client here so importing this module needs no key.
+    settings = Settings().with_provider(args.provider)
     result = llm_judged_rerank(
-        LLMClient(),
+        create_llm(settings.models),
         topics,
         qrels,
         trials,
-        Settings(),
+        settings,
         max_topics=args.max_topics,
         candidates_per_topic=args.candidates,
         ks=args.ks,

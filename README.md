@@ -25,8 +25,25 @@ uv sync            # install deps (add `--extra dense` for embedding retrieval)
 uv run pytest      # run tests (no network, no API key required)
 ```
 
-LLM calls use the Anthropic API; credentials resolve from `ANTHROPIC_API_KEY`
-or an `ant auth login` profile. Model tiers are set in `trialmatch/config.py`.
+### LLM providers
+
+Two providers are supported behind one client interface, so switching one does
+not change any agent or pipeline code. Model tiers per provider live in
+`trialmatch/config.py`.
+
+| provider | credentials | models |
+|---|---|---|
+| `anthropic` (default) | `ANTHROPIC_API_KEY` or an `ant auth login` profile | Claude tiering, `ModelConfig` |
+| `gemini` (experiment) | `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) | `GEMINI_MODELS` |
+
+```bash
+uv run trialmatch run --provider gemini --patient-id S001 \
+  --note-file note.txt --trials data/trials.jsonl --index data/bm25.pkl
+uv run python -m trialmatch.eval.bench llm --provider gemini ...   # same flag
+```
+
+Credentials are always read from the environment by the provider SDK; no key is
+ever stored in this repository.
 
 ## Data sources & licenses
 

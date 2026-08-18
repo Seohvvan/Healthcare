@@ -45,6 +45,17 @@ uv run python -m trialmatch.eval.bench llm --provider gemini ...   # same flag
 Credentials are always read from the environment by the provider SDK; no key is
 ever stored in this repository.
 
+The CLI (`trialmatch ...` and `python -m trialmatch.eval.bench ...`) also loads
+`<project>/.env` at startup (existing environment variables win). Supported keys:
+
+| key | effect |
+|---|---|
+| `GOOGLE_API_KEY` / `GEMINI_API_KEY` | Gemini credentials (read by the SDK) |
+| `ANTHROPIC_API_KEY` | Anthropic credentials (read by the SDK) |
+| `GEMINI_MODEL` | overrides all three Gemini tiers at once |
+| `GEMINI_EXTRACT_MODEL` / `GEMINI_REASON_MODEL` / `GEMINI_REPORT_MODEL` | per-tier overrides (win over `GEMINI_MODEL`) |
+| `GEMINI_RPM` | reserved for client-side rate limiting (not enforced yet) |
+
 ## Data sources & licenses
 
 - **ClinicalTrials.gov** (API v2, `https://clinicaltrials.gov/api/v2/studies`) —

@@ -159,8 +159,8 @@ def test_settings_with_provider_swaps_the_model_preset() -> None:
     gemini = settings.with_provider("gemini")
 
     assert gemini.models.provider == "gemini"
-    assert gemini.models.extract_model == "gemini-2.5-flash"
-    assert gemini.models.reason_model == "gemini-2.5-pro"
+    assert gemini.models.extract_model == "gemini-3.5-flash"
+    assert gemini.models.reason_model == "gemini-3.1-pro-preview"
     assert settings.models.provider == "anthropic"  # original untouched
     assert gemini.retrieval == settings.retrieval  # only the models change
     assert gemini.with_provider("anthropic").models == ModelConfig()
@@ -219,7 +219,7 @@ def test_cli_run_passes_the_provider_flag_to_the_factory(tmp_path, monkeypatch) 
 
     assert exit_code == 0
     assert [models.provider for models in seen] == ["gemini"]
-    assert seen[0].extract_model == "gemini-2.5-flash"
+    assert seen[0].extract_model == "gemini-3.5-flash"
     # the agents were driven with the Gemini tier, not the Claude default
     assert {call["model"] for call in llm.calls} <= {
         GEMINI_MODELS.extract_model,

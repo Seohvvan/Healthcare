@@ -71,3 +71,29 @@ class ScriptedLLM(FakeLLM):
             raise AssertionError(f"ScriptedLLM has no canned response for {schema.__name__}")
         self.responses[schema] = queue.pop(0) if len(queue) > 1 else queue[0]
         return super().structured(**kwargs)
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_llm_env(monkeypatch):
+    """Keep the developer's real environment and .env out of every test.
+
+    CLI entry points load `<project>/.env` at startup; without this fixture a
+    developer's local GEMINI_* overrides would leak into the test process and
+    change what `Settings.with_provider("gemini")` returns mid-suite.
+    """
+    for key in (
+        "GEMINI_MODEL",
+        "GEMINI_EXTRACT_MODEL",
+        "GEMINI_REASON_MODEL",
+        "GEMINI_REPORT_MODEL",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    def _noop_load_dotenv(path=None):
+        return None
+
+    monkeypatch.setattr("trialmatch.cli.load_dotenv", _noop_load_dotenv)
+    monkeypatch.setattr("trialmatch.eval.bench.load_dotenv", _noop_load_dotenv)

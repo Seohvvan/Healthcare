@@ -30,7 +30,7 @@ from trialmatch.agents import (
     profile_patient,
     rank,
 )
-from trialmatch.config import Settings
+from trialmatch.config import Settings, load_dotenv
 from trialmatch.data.ctgov import CTGovClient, parse_study
 from trialmatch.data.store import load_trials, write_jsonl
 from trialmatch.data.trec import load_qrels, load_topics_json, load_topics_xml
@@ -500,6 +500,7 @@ def _write_result(result: dict, out: Path | None) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    load_dotenv()  # credentials/model overrides from <project>/.env, if present
     parser = argparse.ArgumentParser(
         prog="trialmatch-eval-bench",
         description=(

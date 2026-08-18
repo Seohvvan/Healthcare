@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -26,17 +27,56 @@ class ModelConfig(BaseModel):
 
 # Gemini counterpart of the default (Claude) tiering, used by `--provider gemini`.
 # Change the model ids here — they are the only place a Gemini version is pinned.
+# gemini-2.5-pro is closed to new API accounts (404 at generate time as of
+# 2026-08-18); 3.1-pro-preview is the replacement Google's error message names.
 GEMINI_MODELS = ModelConfig(
     provider="gemini",
-    extract_model="gemini-2.5-flash",
-    reason_model="gemini-2.5-pro",
-    report_model="gemini-2.5-flash",
+    extract_model="gemini-3.5-flash",
+    reason_model="gemini-3.1-pro-preview",
+    report_model="gemini-3.5-flash",
 )
 
-_PROVIDER_MODELS: dict[str, ModelConfig] = {
-    "anthropic": ModelConfig(),
-    "gemini": GEMINI_MODELS,
+def gemini_models_from_env() -> ModelConfig:
+    """GEMINI_MODELS with .env / environment overrides applied.
+
+    `GEMINI_MODEL` overrides all three tiers at once; the finer-grained
+    `GEMINI_EXTRACT_MODEL` / `GEMINI_REASON_MODEL` / `GEMINI_REPORT_MODEL`
+    win over it per tier. Unset variables fall back to `GEMINI_MODELS`.
+    """
+    base = GEMINI_MODELS
+    single = os.environ.get("GEMINI_MODEL")
+    return base.model_copy(
+        update={
+            "extract_model": os.environ.get(
+                "GEMINI_EXTRACT_MODEL", single or base.extract_model
+            ),
+            "reason_model": os.environ.get("GEMINI_REASON_MODEL", single or base.reason_model),
+            "report_model": os.environ.get("GEMINI_REPORT_MODEL", single or base.report_model),
+        }
+    )
+
+
+_PROVIDER_MODEL_FACTORIES = {
+    "anthropic": ModelConfig,
+    "gemini": gemini_models_from_env,
 }
+
+
+def load_dotenv(path: Path | None = None) -> None:
+    """Populate os.environ from a `.env` file without overriding existing values.
+
+    Minimal KEY=VALUE parser (no export statements, no interpolation); values
+    may be wrapped in single or double quotes. Missing file is a no-op.
+    """
+    target = path if path is not None else PROJECT_ROOT / ".env"
+    if not target.exists():
+        return
+    for raw_line in target.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
 class RetrievalConfig(BaseModel):
@@ -68,13 +108,13 @@ class Settings(BaseModel):
         so a provider comparison varies exactly one thing.
         """
         try:
-            models = _PROVIDER_MODELS[provider]
+            factory = _PROVIDER_MODEL_FACTORIES[provider]
         except KeyError:
-            expected = ", ".join(sorted(_PROVIDER_MODELS))
+            expected = ", ".join(sorted(_PROVIDER_MODEL_FACTORIES))
             raise ValueError(
                 f"unknown LLM provider {provider!r}; expected one of: {expected}"
             ) from None
-        return self.model_copy(update={"models": models.model_copy()})
+        return self.model_copy(update={"models": factory()})
 
 
 settings = Settings()

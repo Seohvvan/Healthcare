@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from trialmatch.agents.prompts import SIMULATOR_UNKNOWN_ANSWER
-from trialmatch.config import Settings
+from trialmatch.config import Settings, load_dotenv
 from trialmatch.data import download_snapshot, load_topics_json, load_trials
 from trialmatch.llm import create_llm
 from trialmatch.pipeline import (
@@ -85,6 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    load_dotenv()  # credentials/model overrides from <project>/.env, if present
     args = build_parser().parse_args(argv)
     handler = args.handler
     return int(handler(args))

@@ -4,8 +4,15 @@
 <!-- One generalizable rule per line. Keep it short; prune duplicates/stale items. -->
 <!-- Format: - [area] rule (reason) -->
 
-<!-- Examples — delete once you have real entries:
-- [imports] Import from `@company/utils-v2`, never `@company/utils` (v1 is deprecated).
-- [tests] Run `make test-integration`, not `pytest` directly (fixtures live in the Makefile).
-- [async] Never call the sync client inside an async handler; use `aclient` (blocks the loop).
--->
+- [data] TREC CT qrels are judged against the 2021-04 corpus snapshot; never score them
+  against a fresh ClinicalTrials.gov crawl (coverage gaps + criteria text drift), even
+  though NCT IDs themselves are stable.
+- [claims] State snapshot dates and evidence scope for any benchmark claim; external
+  benchmarks validate the engine, not competition-data performance.
+- [ranking] One score cannot serve two orderings — when a benchmark's gain order differs
+  from the product's "never recommend" order, rank by an explicit label grade first.
+- [seams] A cross-module protocol encoded as a magic string (e.g. ":demographic:")
+  belongs in one module with one seam test; never retype it at both ends.
+- [eval] Re-exporting a heavy submodule from a package __init__ voids any "stays
+  importable without that layer" justification for duplicated code — check the
+  __init__ before duplicating.

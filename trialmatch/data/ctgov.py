@@ -64,12 +64,13 @@ class CTGovClient:
 
     # -- requests --------------------------------------------------------
 
-    def _get(self, params: dict[str, Any]) -> dict[str, Any]:
+    def _get(self, params: dict[str, Any], url: str | None = None) -> dict[str, Any]:
         """GET with a small retry on timeouts and 5xx; other errors raise."""
+        target = url or self.base_url
         last_exc: Exception | None = None
         for attempt in range(_RETRY_ATTEMPTS):
             try:
-                response = self._client.get(self.base_url, params=params)
+                response = self._client.get(target, params=params)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_exc = exc
             else:
@@ -86,6 +87,22 @@ class CTGovClient:
                 time.sleep(_RETRY_BASE_SLEEP * (2**attempt))
         assert last_exc is not None
         raise last_exc
+
+    def get_study(self, nct_id: str) -> dict[str, Any] | None:
+        """Fetch one study by id, or None when the API no longer serves it (404).
+
+        Goes through the same retry/timeout path as the paginated listing, so a
+        transient 5xx does not silently drop a record. Any other client error
+        (bad id format, rate limit, ...) is raised.
+        """
+        url = f"{self.base_url.rstrip('/')}/{nct_id}"
+        try:
+            payload = self._get({"format": "json"}, url=url)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == httpx.codes.NOT_FOUND:
+                return None
+            raise
+        return payload if isinstance(payload, dict) else None
 
     def iter_studies(
         self,

@@ -131,6 +131,23 @@ def test_get_retries_once_on_server_error(monkeypatch):
     assert len(studies) == 1
 
 
+def test_get_study_returns_none_on_404_and_raises_other_client_errors():
+    def handler(request: httpx.Request) -> httpx.Response:
+        nct_id = request.url.path.rsplit("/", 1)[-1]
+        if nct_id == "NCT00000404":
+            return httpx.Response(404, json={"message": "not found"})
+        if nct_id == "NCT00000400":
+            return httpx.Response(400, json={"error": "bad id"})
+        return httpx.Response(200, json=_study(nct_id))
+
+    with CTGovClient(transport=httpx.MockTransport(handler)) as client:
+        study = client.get_study("NCT00000001")
+        assert study["protocolSection"]["identificationModule"]["nctId"] == "NCT00000001"
+        assert client.get_study("NCT00000404") is None
+        with pytest.raises(httpx.HTTPStatusError):
+            client.get_study("NCT00000400")
+
+
 def test_parse_study_maps_all_fields():
     record = parse_study(_study("NCT00000001"))
     assert record.nct_id == "NCT00000001"

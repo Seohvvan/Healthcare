@@ -5,20 +5,34 @@
 
 ## 0. 핵심 전략
 
-- 제공된 `synthetic-patients.json`은 **TREC Clinical Trials Track 토픽 포맷**과 동일
-  (`topics` / `num` / `title` 자유 텍스트 환자 서술).
-- 따라서 **TREC 2021/2022 qrels(의사 판정 정답: eligible / excluded / not relevant)를
-  정량 검증의 축**으로 사용한다. TREC 2021 = 개발/튜닝, TREC 2022 = 홀드아웃.
+- 제공된 `synthetic-patients.json`은 TREC Clinical Trials Track과 **과제 구조가
+  동형**(자유 텍스트 환자 서술 → 임상시험 매칭)이고 `num`/`title`은 TREC 계열 토픽
+  관례를 따른 것으로 보인다. 단 **포맷·문체가 동일하지는 않다** — TREC CT는 XML에
+  5~10문장 입원기록형, 샘플은 1~2문장 교과서형 vignette.
+- 검증 축은 3분리한다 (역할을 섞지 않는다):
+  1. **TREC 2021/2022 qrels** = 매칭·랭킹 **엔진의 외부 타당도** 벤치마크.
+     2021 = 개발/튜닝, 2022 = 홀드아웃. ⚠️ qrels는 2021-04 코퍼스 스냅샷 기준 —
+     최신 API 크롤로 평가하면 **커버리지 결손 + 기준 텍스트 드리프트**로 점수가
+     무의미하다. 기본은 **judged-subset 재랭킹**(토픽별 판정된 시험만 후보로 사용),
+     코퍼스는 TrialGPT 공개 저장소의 전처리 배포본(2021 텍스트) 우선, 불가 시
+     judged NCT ID를 API로 수집하되 드리프트 캐비앳을 결과에 명시.
+  2. **대회 제공 10건** = 정답 없음. 예상 진단·적합 시험 수동 매핑으로 스모크/회귀.
+  3. **masked-field 가상 환자** = 질문-재평가 루프(인터랙션) 성능의 정량 평가.
+- 주최 측 채점 방식은 **미공개**이므로 특정 방식을 가정하지 않는다 — 정확성(3분류)·
+  랭킹(nDCG 등)·인터랙션(질문 적중률) 지표군을 전부 리포트해 어떤 채점이든 대응.
 - 아키텍처는 NIH **TrialGPT**(Nature Communications 2024)의 검증된 3단계
-  (Retrieval → Criterion 매칭 → Ranking)를 골격으로 하고, 공모전 차별화 요소인
-  **UNKNOWN 판정 기반 확인 질문 생성 → 재평가 인터랙티브 루프**를 추가한다.
+  (Retrieval → Criterion 매칭 → Ranking)를 골격으로 하고, **UNKNOWN 판정 기반
+  확인 질문 생성 → 재평가 인터랙티브 루프**를 추가한다. 포지셔닝: "최초"가 아니라
+  **기존 접근의 한계로 지목된 지점(전문가의 질문·기준 정제 의존)에 대해, 기준을
+  수정하지 않고 환자 측 정보 격차를 질문으로 메우는 답** (인접 연구: PRISM,
+  Criteria2Query 3.0 — 발표 인용 전 원문 확인 필요).
 
 ## 1. 데이터
 
 | 데이터 | 용도 | 출처/라이선스 |
 |---|---|---|
 | ClinicalTrials.gov API v2 (`/api/v2/studies`) | 임상시험 코퍼스 (로컬 스냅샷) | 공개, API 키 불필요, 출처 표기 |
-| TREC CT 2021/2022 (topics + qrels, ~37.5만 시험 코퍼스) | 정량 검증 정답 | 무료 등록, 연구 목적 |
+| TREC CT 2021/2022 (topics + qrels; 코퍼스는 2021-04 스냅샷) | 엔진 외부 타당도 (judged-subset 재랭킹) | TrialGPT 배포본 우선 / trec-cds.org 등록 |
 | 가상 환자 (LLM 증강 생성) | 개발·질문 평가 | 자체 생성 (정답 시트 포함) |
 
 - API v2: JSON, `pageSize` 최대 1000, `pageToken` 커서 페이지네이션.
@@ -57,7 +71,13 @@
 - 판정 스키마는 criterion 단위 3분류 **MET / NOT MET / UNKNOWN** (TrialGPT 방식).
 - **집계·하드룰은 LLM이 아닌 코드로**: 제외 기준 확정 위반 1건 = excluded,
   선정 충족률·unknown 비율로 점수화.
-- 질문 후 재평가는 전체 재실행이 아니라 해당 criterion만 갱신.
+- **최종 정렬은 라벨 등급 우선**: ELIGIBLE > 미확정 > EXCLUDED > NOT_RELEVANT,
+  같은 등급 안에서 점수순. "추천 불가"는 순위가 아니라 리포트의 판정 라벨로
+  전달하며, 이 순서는 TREC gain(2 > 1 > 0)과도 일관된다.
+- 질문 대상은 **판정 미확정(trial_label 미정) 시험의 UNKNOWN만** — 이미
+  excluded/not relevant로 확정된 시험에 질문을 낭비하지 않는다.
+- 질문 후 재평가는 전체 재실행이 아니라 해당 criterion만 갱신 (기존 판정은
+  병합 유지 — 확정된 MET이 라운드 간에 뒤집히지 않는다).
 - **Patient Simulator Agent**로 질문-재평가 루프를 자동 시연·평가.
 
 ## 4. 모델
@@ -79,6 +99,9 @@
    (2인 교차 라벨, 일치도 보고). 목표선: TrialGPT 87.3%.
 2. **Trial 판정·랭킹**: TREC qrels 대비 3분류 정확도; **NDCG@10**(eligible gain 2,
    excluded gain 1), P@10, MRR; Retrieval 단계는 Recall@50.
+   기본 실험은 **judged-subset 재랭킹**(토픽별 판정 시험만 후보로; LLM 매칭은
+   토픽·후보 수를 예산에 맞게 캡). 전체 코퍼스 retrieval 평가는 여력 있을 때 확장.
+   벤치마크 경로(2021 데이터)와 데모/대회 경로(최신 API v2 스냅샷)는 분리 운영.
 3. **질문 생성**: **Masked-field recovery** — 완전 정보 가상 환자에서 필드 마스킹 →
    (a) 질문 적중률, (b) 재평가 후 정확도 상승·UNKNOWN 감소율. 보조: LLM-as-judge +
    소수 사람 검증.
@@ -88,6 +111,7 @@
 ## 6. 검증
 
 - TREC 2021로 튜닝 → **TREC 2022 홀드아웃** 최종 1~2회 평가 (오버피팅 방지).
+  TREC 결과는 "엔진의 외부 타당도"로만 주장한다 — 대회 10건의 성능 증명이 아니다.
 - 제공 샘플 10건: 예상 진단·적합 시험 수동 매핑 → 상시 회귀 스모크 테스트.
 - 재현성: 프롬프트·모델 버전 고정, 전체 실행 로그 저장, README 재현 절차.
 - 오류 유형화(수치 해석·시간 조건·약어·근거 없는 추론)를 발표에 포함.

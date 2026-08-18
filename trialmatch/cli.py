@@ -63,6 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-questions", action="store_true", help="skip the clarifying-question loop"
     )
     run.add_argument(
+        "--question-rounds",
+        type=int,
+        default=1,
+        help="clarifying-question rounds (later rounds target remaining unknowns)",
+    )
+    run.add_argument(
         "--simulate-file",
         type=Path,
         default=None,
@@ -160,7 +166,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         llm=llm,
         settings=settings,
         top_k=args.top_k,
-        question_rounds=0 if args.no_questions else 1,
+        question_rounds=0 if args.no_questions else args.question_rounds,
         answer_provider=answer_provider,
     )
 

@@ -30,3 +30,6 @@
   silently mis-routed corpus loads as empty records and reads as a bad model, not a bad load.
 - [prompts] Assert prompt behavior, not prompt vocabulary — substring checklists break on
   rewording without catching a real regression.
+- [eval] A user simulator must model what the informant actually knows — an oracle
+  simulator that answers from the full record misgrades exactly the policies that are
+  optimized for real users.

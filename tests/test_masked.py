@@ -662,6 +662,7 @@ def _recording_run_pipeline(calls: list[dict]):
         calls.append(kwargs)
         return None, {
             "patient_id": kwargs["patient_id"],
+            "candidate_ids": [],
             "rounds": [],
             "ranking": [],
             "errors": [],
@@ -702,6 +703,32 @@ def test_run_masked_eval_logs_every_assessed_trial_by_default(monkeypatch) -> No
 
     assert {call["top_k"] for call in calls} == {7}
     assert result["config"]["top_k"] == 7
+
+
+def test_run_masked_eval_pins_the_baseline_candidates_for_every_arm(monkeypatch) -> None:
+    """Profiling is stochastic, so only the baseline may retrieve; the masked
+    arms must judge the exact same trials or the metrics mix in retrieval
+    variance."""
+    from trialmatch import pipeline as pipeline_module
+
+    retrieve_calls: list[str] = []
+    original_retrieve = pipeline_module._retrieve
+
+    def counting_retrieve(profile, index, trials, settings):
+        retrieve_calls.append(profile.patient_id)
+        return original_retrieve(profile, index, trials, settings)
+
+    monkeypatch.setattr(pipeline_module, "_retrieve", counting_retrieve)
+
+    result = run_masked_eval(MaskedEvalLLM(), [PATIENT], LUNG_TRIALS, INDEX, SETTINGS)
+
+    assert retrieve_calls == ["M001"]  # baseline only, once per patient
+    logs = result["run_logs"]["M001"]
+    baseline_ids = logs["baseline"]["candidate_ids"]
+    assert len(logs["facts"]) == len(PATIENT.facts)
+    assert all(
+        log["candidate_ids"] == baseline_ids for log in logs["facts"].values()
+    )
 
 
 def test_run_masked_eval_caps_facts_and_reports_what_it_dropped(caplog) -> None:

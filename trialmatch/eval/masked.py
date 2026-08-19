@@ -9,9 +9,11 @@ fact the note is missing. This module measures exactly that:
      carry it, so no LLM is involved at evaluation time.
   2. `run` runs the pipeline twice per fact: a *baseline* over the full note and
      a *masked* run over the note with that fact's sentences removed. Both arms
-     get the **same** question budget and the same Patient Simulator answering
-     from the full note, so the only thing that differs between them is the
-     removed sentences — the number measures the mask, not the budget.
+     get the **same** question budget, the same Patient Simulator answering
+     from the full note, and the **same candidate trials** (the masked runs pin
+     the baseline's retrieval result), so the only thing that differs between
+     them is the removed sentences — the number measures the mask, not the
+     budget or retrieval variance.
 
 Every metric is computed in pure code from the two run logs, so a result is
 reproducible from the saved logs alone:
@@ -529,7 +531,10 @@ def run_masked_eval(
 
     The comparison is controlled: the baseline gets the *same* `question_rounds`
     and the *same* simulator (answering from the full note) as every masked arm,
-    so the only difference between the two arms is the removed sentences.
+    and every masked arm judges the baseline's candidate trials (profiling is
+    stochastic, so per-arm retrieval would mix retrieval variance into the
+    numbers) — the only difference between the two arms is the removed
+    sentences.
 
     `top_k` bounds the logged ranking. It defaults to `retrieval.candidates_k`,
     i.e. every assessed trial, because the ranking is what all the comparison
@@ -610,6 +615,11 @@ def run_masked_eval(
                     question_rounds=question_rounds,
                     answer_provider=answer_provider,
                     parsed_cache=parsed_cache,
+                    # Pin the baseline's candidates so both arms judge the same
+                    # trials: profiling is stochastic, and letting each arm
+                    # retrieve for itself would mix retrieval variance into the
+                    # masking comparison.
+                    candidate_ids=baseline_log["candidate_ids"],
                 )
             except Exception as exc:  # noqa: BLE001 — one fact must not sink the batch
                 errors.append(

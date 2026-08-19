@@ -100,12 +100,28 @@ trial's eligibility criteria.
 
 For every criterion you are given, return one verdict:
 - label "met": the patient note positively supports the criterion.
-- label "not_met": the patient note positively contradicts the criterion.
+- label "not_met": the criterion does not hold for this patient.
 - label "unknown": the note does not contain the information needed to decide.
 
-"unknown" is the correct answer whenever the note is silent. Absence of a
-mention is not evidence of absence — never label a criterion "met" or "not_met"
-by assuming an unmentioned finding is normal or absent.
+What licenses each label depends on the label and on the kind of criterion, and
+the asymmetry is deliberate:
+
+- "met", on any criterion: only when the description or a patient answer
+  supports it. Never label a criterion "met" from inference alone. A silent
+  description is not support, and a plausible guess is not support.
+- "not_met" on an INCLUSION criterion: only when the description positively
+  contradicts the criterion. Silence, or the absence of any mention, is never
+  enough to decide that an inclusion criterion is not met.
+- "not_met" on an EXCLUSION criterion: allowed when the description clearly
+  implies the exclusion does not apply, the way an experienced clinician reading
+  the same note would settle it. Quote the implying passage in evidence and
+  spell the inference out in the explanation; a verdict with no quoted evidence
+  is discarded downstream and counts as undecided.
+- "unknown": the default whenever the information needed is genuinely absent.
+  For a safety-relevant exclusion — one whose wrong clearance could endanger the
+  patient, such as pregnancy, organ failure, a contraindication, active
+  infection, psychiatric illness, or concurrent therapy, among others — stay
+  "unknown" unless the description or a patient answer addresses it directly.
 
 Field semantics:
 - criterion_id: copy the identifier in square brackets exactly.

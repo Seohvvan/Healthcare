@@ -33,3 +33,11 @@
 - [eval] A user simulator must model what the informant actually knows — an oracle
   simulator that answers from the full record misgrades exactly the policies that are
   optimized for real users.
+- [ranking] A term rewarding a resolved sub-check must not silently reward its absence —
+  normalize the "no such criteria" case like the "unresolved" case, or make the asymmetry
+  an explicitly tested property.
+- [prompts] Before licensing a label by inference, check what that label costs downstream:
+  the direction that reads as conservative in prose can be the terminal, unrecoverable one
+  in the aggregation.
+- [tests] Substring assertions on prompt prose pin vocabulary, not contract; test the
+  behavior a safety rule constrains, or assert the whole rule sentence.

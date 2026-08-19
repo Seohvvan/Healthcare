@@ -601,7 +601,14 @@ class MaskedEvalLLM(FakeLLM):
             else:
                 label = EligibilityLabel.MET
             verdicts.append(
-                CriterionAssessment(criterion_id=criterion_id, label=label, explanation="because")
+                CriterionAssessment(
+                    criterion_id=criterion_id,
+                    label=label,
+                    # A decided verdict quotes evidence; the ranker reads an
+                    # evidence-less met or cleared verdict as undecided.
+                    evidence=[] if label is EligibilityLabel.UNKNOWN else ["quoted"],
+                    explanation="because",
+                )
             )
         return AssessmentBatch(verdicts=verdicts)
 

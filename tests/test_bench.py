@@ -132,6 +132,84 @@ def test_load_trial_corpus_dispatches_on_the_extension(tmp_path):
     assert load_trial_corpus(js)["NCT2"].title == "Two"
 
 
+def _write_jsonl_lines(tmp_path, name: str, records: list[Any]):
+    path = tmp_path / name
+    path.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+    )
+    return path
+
+
+def test_load_trial_corpus_reads_the_trialgpt_jsonl_distribution(tmp_path):
+    path = _write_jsonl_lines(
+        tmp_path,
+        "corpus.jsonl",
+        [
+            {
+                "_id": "NCT00000010",
+                "title": "Envelope title",
+                "text": "unused blob",
+                "metadata": {
+                    "brief_title": "Metadata title",
+                    "diseases_list": ["Migraine"],
+                    "brief_summary": "A summary.",
+                    "inclusion_criteria": "inclusion criteria: adults",
+                    "exclusion_criteria": "pregnancy",
+                    "criteria": "None",  # the distribution stringifies nulls
+                },
+            }
+        ],
+    )
+
+    record = load_trial_corpus(path)["NCT00000010"]
+
+    assert record.title == "Metadata title"
+    assert record.conditions == ["Migraine"]
+    assert record.brief_summary == "A summary."
+    # The literal "None" in `criteria` must not win over the split fields.
+    assert record.eligibility_text.startswith("Inclusion Criteria:")
+    assert "pregnancy" in record.eligibility_text
+
+
+def test_flatten_metadata_keeps_the_envelope_when_metadata_is_blank(tmp_path):
+    # "" is the distribution's missing-value sentinel; it must not shadow a
+    # real envelope field of the same name.
+    path = _write_jsonl_lines(
+        tmp_path,
+        "corpus.jsonl",
+        [{"_id": "NCT00000011", "title": "Envelope", "metadata": {"title": "", "phase": ""}}],
+    )
+
+    assert load_trial_corpus(path)["NCT00000011"].title == "Envelope"
+
+
+def test_load_trial_corpus_sniffs_metadata_before_a_top_level_id(tmp_path):
+    # A distribution-style record that also carries a top-level nct_id must not
+    # be routed to the strict snapshot loader, which would load empty records.
+    path = _write_jsonl_lines(
+        tmp_path,
+        "corpus.jsonl",
+        [{"nct_id": "NCT00000012", "metadata": {"brief_title": "From metadata"}}],
+    )
+
+    assert load_trial_corpus(path)["NCT00000012"].title == "From metadata"
+
+
+def test_load_trial_corpus_names_the_location_of_a_malformed_jsonl_line(tmp_path):
+    path = tmp_path / "corpus.jsonl"
+    path.write_text('{"_id": "NCT1", "metadata": {}}\n{broken\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"corpus\.jsonl:2"):
+        load_trial_corpus(path)
+
+
+def test_load_trial_corpus_tolerates_a_non_mapping_first_record(tmp_path):
+    path = tmp_path / "corpus.jsonl"
+    path.write_text("5\n", encoding="utf-8")
+
+    assert load_trial_corpus(path) == {}
+
+
 # --------------------------------------------------------------------------- #
 # fetch_judged_trials
 # --------------------------------------------------------------------------- #

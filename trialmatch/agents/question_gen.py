@@ -1,12 +1,18 @@
 """Agent 5: turn UNKNOWN criteria into a short list of clarifying questions.
 
-Priority is assigned in code, not by the LLM: a question touching any exclusion
-criterion is priority 0 (asked first), inclusion-only questions are priority 1.
-The `max_questions` cap is also enforced in code.
+Ordering ranks two things at once: whether the patient can answer the question
+at all, then whether it touches an exclusion criterion. The answerability tier
+comes from the model's own `patient_answerable` flag (an unvalidated
+self-report steered by the prompt); the exclusion-before-inclusion slot inside
+each tier and the `max_questions` cap are enforced in code. A question the
+patient cannot answer from lived experience (it needs a laboratory value, an
+imaging finding, or another clinician-held record) drops a whole tier, so it
+never outranks a question the patient can actually answer.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 from pydantic import BaseModel, Field
@@ -25,6 +31,13 @@ from trialmatch.schemas import (
 
 EXCLUSION_PRIORITY = 0
 INCLUSION_PRIORITY = 1
+# Added to the priority of a question the patient cannot answer, which demotes it
+# below every answerable question while keeping exclusion-before-inclusion order
+# inside each tier. A model that omits the flag is trusted to have asked
+# something answerable, so the penalty is opt-in.
+UNANSWERABLE_PENALTY = INCLUSION_PRIORITY + 1
+
+logger = logging.getLogger(__name__)
 
 
 class GeneratedQuestion(BaseModel):
@@ -32,6 +45,7 @@ class GeneratedQuestion(BaseModel):
 
     text: str
     criterion_ids: list[str] = Field(default_factory=list)
+    patient_answerable: bool = True
 
 
 class QuestionBatch(BaseModel):
@@ -71,6 +85,11 @@ def generate_questions(
         ),
     )
 
+    if batch.questions and all(q.patient_answerable for q in batch.questions):
+        # Either every question really is answerable, or the model never sets
+        # the flag and the tiering is a silent no-op — visible only here.
+        logger.debug("no question was flagged patient-unanswerable in this batch")
+
     candidates: list[tuple[int, int, str, list[str]]] = []
     for order, generated in enumerate(batch.questions):
         text = generated.text.strip()
@@ -78,9 +97,11 @@ def generate_questions(
             continue
         # Drop identifiers the model invented or that are already resolved.
         criterion_ids = [cid for cid in generated.criterion_ids if cid in unknown]
-        candidates.append((_priority(criterion_ids, unknown), order, text, criterion_ids))
+        priority = _priority(criterion_ids, unknown, generated.patient_answerable)
+        candidates.append((priority, order, text, criterion_ids))
 
-    # Exclusion-related questions first; original order breaks ties.
+    # Answerable questions first, exclusion-related first within each tier;
+    # original order breaks remaining ties.
     candidates.sort(key=lambda item: (item[0], item[1]))
     return [
         ClarifyingQuestion(
@@ -113,9 +134,15 @@ def _collect_unknown_criteria(
     return unknown
 
 
-def _priority(criterion_ids: list[str], unknown: dict[str, Criterion]) -> int:
+def _priority(
+    criterion_ids: list[str],
+    unknown: dict[str, Criterion],
+    patient_answerable: bool,
+) -> int:
+    """Rank a question: answerability decides the tier, criterion type the slot."""
+    penalty = 0 if patient_answerable else UNANSWERABLE_PENALTY
     for criterion_id in criterion_ids:
         criterion = unknown.get(criterion_id)
         if criterion is not None and criterion.ctype is CriterionType.EXCLUSION:
-            return EXCLUSION_PRIORITY
-    return INCLUSION_PRIORITY
+            return penalty + EXCLUSION_PRIORITY
+    return penalty + INCLUSION_PRIORITY

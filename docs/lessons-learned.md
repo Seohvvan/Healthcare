@@ -24,3 +24,9 @@
   subset.
 - [eval] Report every rate with its denominator and its dropped/failed unit count; a run
   that assessed almost nothing must not be able to print a perfect score.
+- [data] Verify a format guard against the actual distribution file before shipping it —
+  a sentinel that never occurs is dead code masking the sentinel that does.
+- [eval] A format sniff that selects a loader must fail loudly when it guesses wrong; a
+  silently mis-routed corpus loads as empty records and reads as a bad model, not a bad load.
+- [prompts] Assert prompt behavior, not prompt vocabulary — substring checklists break on
+  rewording without catching a real regression.

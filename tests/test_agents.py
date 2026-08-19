@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from conftest import FakeLLM  # shared test double, see tests/conftest.py
 
+from trialmatch.agents import prompts
 from trialmatch.agents.criteria_parser import CriteriaSplit, parse_criteria
 from trialmatch.agents.matcher import (
     DEMOGRAPHIC_MARKER,
@@ -710,6 +711,79 @@ def test_generate_questions_prioritises_exclusion_and_caps_the_count() -> None:
     )
     assert len(capped) == 2
     assert capped[0].priority == 0
+
+
+def test_generate_questions_ranks_answerable_questions_above_clinician_data() -> None:
+    parsed = ParsedCriteria(
+        nct_id="NCT1",
+        inclusion=[criterion("NCT1:inclusion:0", CriterionType.INCLUSION, "On beta blockers")],
+        exclusion=[
+            criterion("NCT1:exclusion:0", CriterionType.EXCLUSION, "Triglycerides > 500 mg/dL"),
+            criterion("NCT1:exclusion:1", CriterionType.EXCLUSION, "Gallstones on ultrasound"),
+        ],
+    )
+    assessment = TrialAssessment(
+        patient_id="p1",
+        nct_id="NCT1",
+        unknown_criterion_ids=[
+            "NCT1:inclusion:0",
+            "NCT1:exclusion:0",
+            "NCT1:exclusion:1",
+        ],
+    )
+    llm = FakeLLM(
+        {
+            QuestionBatch: QuestionBatch(
+                questions=[
+                    GeneratedQuestion(
+                        text="What were your recent triglyceride levels?",
+                        criterion_ids=["NCT1:exclusion:0"],
+                        patient_answerable=False,
+                    ),
+                    GeneratedQuestion(
+                        text="Which medicines do you take every day?",
+                        criterion_ids=["NCT1:inclusion:0"],
+                    ),
+                    GeneratedQuestion(
+                        text="Has a doctor ever told you that you have gallstones?",
+                        criterion_ids=["NCT1:exclusion:1"],
+                        patient_answerable=True,
+                    ),
+                ]
+            )
+        }
+    )
+
+    questions = generate_questions(llm, make_profile(), [assessment], {"NCT1": parsed}, MODELS)
+
+    # An unanswerable exclusion question loses to every answerable question, but
+    # answerable exclusion still beats answerable inclusion.
+    assert [q.text for q in questions] == [
+        "Has a doctor ever told you that you have gallstones?",
+        "Which medicines do you take every day?",
+        "What were your recent triglyceride levels?",
+    ]
+    assert [q.priority for q in questions] == [0, 1, 2]
+
+    # Under a tight budget the wasted question is the one that gets dropped.
+    capped = generate_questions(
+        llm, make_profile(), [assessment], {"NCT1": parsed}, MODELS, max_questions=2
+    )
+    assert [q.text for q in capped] == [
+        "Has a doctor ever told you that you have gallstones?",
+        "Which medicines do you take every day?",
+    ]
+
+
+def test_question_prompt_steers_towards_patient_answerable_facts() -> None:
+    """Only the load-bearing contracts: the flag the code-side ordering reads
+    must be documented for the model, and both ordering dimensions must be
+    named. Vocabulary details may be reworded freely."""
+    system = prompts.QUESTION_SYSTEM.casefold()
+
+    assert "patient_answerable" in system
+    assert "deprioritize" in system
+    assert "exclusion" in system
 
 
 def test_generate_questions_without_unknowns_skips_the_llm() -> None:

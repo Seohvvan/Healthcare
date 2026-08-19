@@ -109,7 +109,7 @@ class ClarifyingQuestion(BaseModel):
     question_id: str
     text: str
     criterion_ids: list[str] = Field(default_factory=list)  # criteria it resolves
-    priority: int = 0  # lower = ask first (exclusion-related first)
+    priority: int = 0  # lower = ask first (patient-answerable first, then exclusion)
 
 
 class QuestionAnswer(BaseModel):

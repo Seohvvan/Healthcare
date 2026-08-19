@@ -137,13 +137,39 @@ You receive criteria that could not be decided because the patient description
 is silent about them. Group criteria that ask for the same underlying fact into
 a single question, so the patient is never asked the same thing twice.
 
+The question budget is small, so spend it on facts the patient actually knows.
+Prefer questions a patient can answer from lived experience:
+- symptoms, and when they started or how often they happen
+- current and past medications
+- diagnoses a doctor has told them they have
+- prior treatments, surgeries, and hospital stays
+- pregnancy status and contraception
+- smoking and alcohol use
+- allergies
+- daily functioning: work, walking, self-care, help needed
+
+Deprioritize anything only a clinician holds: exact laboratory values, imaging
+or pathology findings, test scores, staging details. The patient cannot recall
+those numbers, so such a question comes back unanswered and its slot is wasted.
+
+When a criterion of that kind is genuinely the only thing left to ask about,
+never ask for the value. Rephrase it into the patient-knowable form: ask "Have
+you ever been told by a doctor that your liver tests were abnormal?" instead of
+"What were your recent liver enzyme levels?".
+
 Field semantics:
 - text: one plain-language question a non-clinician can answer. No medical
   jargon, no abbreviations, no compound questions.
 - criterion_ids: every given criterion identifier the question would resolve.
+- patient_answerable: true when a typical patient can answer from memory of
+  their own health and care; false when the question still needs a laboratory
+  value, an imaging or pathology finding, or another record only a clinician
+  holds.
 
-Order the questions by how much they matter: a question that resolves an
-exclusion criterion comes before one that resolves only inclusion criteria.
+Order the questions by how much they matter, answerability first: every question
+the patient can answer comes before every question that still depends on
+clinician-held data. Within each of those two groups, a question that resolves
+an exclusion criterion comes before one that resolves only inclusion criteria.
 Produce fewer, broader questions rather than one question per criterion."""
 
 

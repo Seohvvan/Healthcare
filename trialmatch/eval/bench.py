@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -90,31 +90,54 @@ def load_trialgpt_corpus(path: Path) -> dict[str, TrialRecord]:
     TREC assessors judged, so criteria drift cannot distort the scores.
 
     The exact field layout is only verified at download time, so the loader is
-    deliberately permissive. It accepts either a JSON object keyed by NCT id or
-    a list of objects each carrying an id field, and maps the known field-name
-    variants (`brief_title`/`title`, `diseases_list`/`conditions`,
+    deliberately permissive. It accepts a JSON object keyed by NCT id, a list
+    of objects each carrying an id field, or the FTP `.jsonl` distribution
+    (one object per line). A nested `metadata` block is flattened over the
+    envelope first (truthy values only), then the known field-name variants
+    are mapped (`brief_title`/`title`, `diseases_list`/`conditions`,
     `criteria` or `inclusion_criteria` + `exclusion_criteria`, ...). Unknown
     fields are ignored; records with no resolvable NCT id are skipped and the
     total is logged.
     """
-    with Path(path).open(encoding="utf-8") as fh:
+    path = Path(path)
+    if path.suffix.lower() == ".jsonl":
+        # The FTP distribution (trec_20xx_corpus.jsonl) is one object per line.
+        return _corpus_from_items(_iter_jsonl_items(path))
+
+    with path.open(encoding="utf-8") as fh:
         payload = json.load(fh)
 
     if isinstance(payload, dict):
-        items: list[tuple[str | None, Any]] = list(payload.items())
+        items: Iterable[tuple[str | None, Any]] = payload.items()
     elif isinstance(payload, list):
-        items = [(None, entry) for entry in payload]
+        items = ((None, entry) for entry in payload)
     else:
         raise TypeError(
             f"trial corpus must be a JSON object or list, got {type(payload).__name__}"
         )
+    return _corpus_from_items(items)
 
+
+def _iter_jsonl_items(path: Path) -> Iterator[tuple[str | None, Any]]:
+    with path.open(encoding="utf-8") as fh:
+        for lineno, line in enumerate(fh, start=1):
+            if not line.strip():
+                continue
+            try:
+                yield None, json.loads(line)
+            except json.JSONDecodeError as exc:
+                # A truncated download must fail loudly, with the real location.
+                raise ValueError(f"{path}:{lineno}: malformed JSON line") from exc
+
+
+def _corpus_from_items(items: Iterable[tuple[str | None, Any]]) -> dict[str, TrialRecord]:
     corpus: dict[str, TrialRecord] = {}
     skipped = 0
     for key, raw in items:
         if not isinstance(raw, Mapping):
             skipped += 1
             continue
+        raw = _flatten_metadata(raw)
         nct_id = _resolve_nct_id(raw, key)
         if not nct_id:
             skipped += 1
@@ -132,11 +155,42 @@ def load_trialgpt_corpus(path: Path) -> dict[str, TrialRecord]:
     return corpus
 
 
+def _flatten_metadata(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Merge a nested `metadata` block (the JSONL distribution's layout).
+
+    Metadata detail fields win over the top-level envelope, but only truthy
+    ones: the 2021 distribution marks missing values with the empty string
+    (and `criteria` with a literal "None"), and neither may shadow a real
+    envelope field.
+    """
+    metadata = raw.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return raw
+    merged = dict(raw)
+    merged.update({k: v for k, v in metadata.items() if v and v != "None"})
+    return merged
+
+
 def load_trial_corpus(path: Path) -> dict[str, TrialRecord]:
-    """Load a corpus by extension: `.jsonl` snapshot vs TrialGPT `.json`."""
+    """Load a corpus: our snapshot JSONL, TrialGPT JSON, or TrialGPT JSONL.
+
+    A `.jsonl` file is sniffed by its first record. A nested `metadata` object
+    marks the TrialGPT distribution (checked first — a distribution record may
+    also carry a top-level id); a bare `nct_id` marks our own snapshot, which
+    loads strictly. Anything else goes through the permissive mapper, which
+    logs what it skips rather than silently producing empty records.
+    """
     path = Path(path)
-    if path.suffix.lower() == ".jsonl":
-        return load_trials(path)
+    if path.suffix.lower() != ".jsonl":
+        return load_trialgpt_corpus(path)
+    with path.open(encoding="utf-8") as fh:
+        first = next((line for line in fh if line.strip()), "")
+    record = json.loads(first) if first else None
+    if isinstance(record, Mapping):
+        if isinstance(record.get("metadata"), Mapping):
+            return load_trialgpt_corpus(path)
+        if "nct_id" in record:
+            return load_trials(path)
     return load_trialgpt_corpus(path)
 
 

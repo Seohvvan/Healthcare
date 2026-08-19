@@ -11,7 +11,7 @@ ranker, so a run is reproducible from the log alone.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -58,8 +58,13 @@ def run_pipeline(
     answer_provider: AnswerProvider | None = None,
     use_llm_criteria: bool = True,
     parsed_cache: dict[str, ParsedCriteria] | None = None,
+    candidate_ids: Sequence[str] | None = None,
 ) -> tuple[Recommendation, dict]:
     """Run the full funnel for one patient and return `(recommendation, run_log)`.
+
+    `candidate_ids` pins the candidate set, skipping retrieval entirely: an A/B
+    evaluation can hand every arm the same trials so the comparison measures
+    matching, not retrieval variance. Ids missing from `trials` are dropped.
 
     `parsed_cache` is mutated in place so the caller can persist the per-trial
     criteria parse across patients (design.md §2 — the main cost lever).
@@ -73,7 +78,10 @@ def run_pipeline(
     """
     profile = profile_patient(llm, patient_id, note, settings.models)
 
-    candidate_ids = _retrieve(profile, index, trials, settings)
+    if candidate_ids is None:
+        candidate_ids = _retrieve(profile, index, trials, settings)
+    else:
+        candidate_ids = [nct_id for nct_id in candidate_ids if nct_id in trials]
 
     parsed_by_nct, skipped_no_criteria = _parse_candidates(
         llm, candidate_ids, trials, settings, use_llm_criteria, parsed_cache

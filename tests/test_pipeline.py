@@ -213,6 +213,24 @@ def test_run_pipeline_truncates_to_top_k_and_reuses_the_cache() -> None:
     assert "CriteriaSplit" not in schemas_called(second)
 
 
+def test_run_pipeline_pinned_candidates_skip_retrieval_and_drop_unknown_ids() -> None:
+    llm = FakeLLM({ProfileExtraction: PROFILE_EXTRACTION, AssessmentBatch: AssessmentBatch()})
+
+    _, run_log = run_pipeline(
+        patient_id="S001",
+        note=NOTE,
+        trials=TRIALS,
+        index=INDEX,
+        llm=llm,
+        settings=SETTINGS,
+        candidate_ids=["NCT0002", "NCT0001", "NCT9999"],
+    )
+
+    # The pinned list wins over retrieval: order preserved, unknown ids dropped.
+    assert run_log["candidate_ids"] == ["NCT0002", "NCT0001"]
+    assert len(matcher_calls(llm)) == 2
+
+
 def test_retrieval_drops_zero_score_trials_before_the_matcher() -> None:
     """A trial sharing no term with any query must not cost an LLM call."""
     llm = FakeLLM(

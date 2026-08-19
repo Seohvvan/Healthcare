@@ -16,3 +16,11 @@
 - [eval] Re-exporting a heavy submodule from a package __init__ voids any "stays
   importable without that layer" justification for duplicated code — check the
   __init__ before duplicating.
+- [eval] An A/B metric must vary exactly one factor — give the baseline arm the same
+  budget (question rounds, tools, retries) as the treatment arm, or the number measures
+  the budget, not the change.
+- [eval] Never compute agreement/coverage over a top-k-truncated ranking: rank order is
+  correlated with the label being compared, so truncation silently selects the agreeing
+  subset.
+- [eval] Report every rate with its denominator and its dropped/failed unit count; a run
+  that assessed almost nothing must not be able to print a perfect score.

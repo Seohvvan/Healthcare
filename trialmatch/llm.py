@@ -185,6 +185,10 @@ class GeminiClient:
                 response_mime_type="application/json",
                 response_schema=schema,
                 max_output_tokens=max_tokens,
+                # Greedy decoding: criterion verdicts must not flip between
+                # otherwise-identical runs (the masked-field A/B measures label
+                # agreement, and sampling noise reads as disagreement).
+                temperature=0.0,
             ),
         )
 
@@ -217,6 +221,7 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 system_instruction=system,
                 max_output_tokens=max_tokens,
+                temperature=0.0,
             ),
         )
         return response.text or ""

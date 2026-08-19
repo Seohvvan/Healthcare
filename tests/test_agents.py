@@ -825,6 +825,29 @@ def test_answer_questions_with_no_questions_skips_the_llm() -> None:
     assert llm.calls == []
 
 
+def test_simulator_prompt_quotes_the_sentinel_the_code_recognises() -> None:
+    """The line the model is told to copy must be exactly the one
+    `is_unknown_answer` accepts, or a "don't know" would score as information."""
+    sentinel_lines = [
+        line
+        for line in prompts.SIMULATOR_SYSTEM.splitlines()
+        if prompts.is_unknown_answer(line)
+    ]
+
+    assert sentinel_lines == [prompts.SIMULATOR_UNKNOWN_ANSWER]
+
+
+def test_simulator_prompt_holds_the_patient_to_what_they_could_know() -> None:
+    """Only the load-bearing contracts: answering stays bound to the ground
+    truth, chart-only measurements are not patient knowledge, and a result the
+    patient was told still is. Vocabulary may be reworded freely."""
+    system = prompts.SIMULATOR_SYSTEM.casefold()
+
+    assert "never invent" in system
+    assert "laboratory value" in system
+    assert "was told" in system
+
+
 # --------------------------------------------------------------------------- #
 # reporter
 # --------------------------------------------------------------------------- #

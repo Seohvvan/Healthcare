@@ -874,6 +874,18 @@ def test_generate_patients_drops_a_leaking_fact_and_keeps_the_patient() -> None:
     ]
 
 
+def test_generator_prompt_asks_only_for_patient_knowable_masks() -> None:
+    """Only the load-bearing contracts: a masked fact must be one the simulated
+    patient could answer, a measurement only counts as what the patient was told,
+    and the structural fact budget the loader relies on is still stated.
+    Vocabulary may be reworded freely."""
+    system = masked.GENERATOR_SYSTEM.casefold()
+
+    assert "patient-knowable" in system
+    assert "was told" in system
+    assert f"{masked.MIN_FACTS}-{masked.MAX_FACTS} maskable facts" in system
+
+
 def test_generate_patients_skips_a_topic_whose_every_fact_is_invalid() -> None:
     llm = FakeLLM(
         {

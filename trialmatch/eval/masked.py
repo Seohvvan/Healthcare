@@ -265,17 +265,30 @@ You write synthetic patient records for evaluating a clinical trial matching
 system. You are given a one-sentence patient vignette.
 
 Expand it into a complete, clinically coherent record of {MIN_SENTENCES}-{MAX_SENTENCES}
-short sentences. Keep every fact of the vignette, and add the concrete values a
+short sentences. Keep every fact of the vignette, and add the concrete details a
 trial screener would need: age, sex, diagnosis and how it was confirmed, symptom
 frequency and duration, relevant negatives, comorbidities, current medications,
 prior treatments, and pregnancy or contraception status when applicable. Use
 plausible, specific values (numbers, dates, drug names) — never placeholders.
 One fact per sentence; do not spread a value across two sentences.
 
-Then list {MIN_FACTS}-{MAX_FACTS} maskable facts. A maskable fact is a piece of clinical
-information a screener would have to ask about if it were missing — symptom
-frequency, pregnancy or contraception status, comorbidity history, current
-medication, prior treatment. For each fact return:
+The record is what a simulated patient answers questions from, so write it as
+this patient's own account of their care. When a laboratory value, an imaging or
+pathology finding, a test score or a stage matters to the story, state it as
+something the patient was told, never as a bare measurement: write "Her doctor
+told her that her urine protein was very high", not "24-hour urine protein was
+5.2 g".
+
+Then list {MIN_FACTS}-{MAX_FACTS} maskable facts. A maskable fact must be
+patient-knowable: something the patient can report from lived experience when a
+screener asks — symptom frequency, timing or duration, current and past
+medications, diagnoses, treatments and hospitalizations they were told about,
+pregnancy or contraception status, smoking and alcohol use, allergies, daily
+functioning. Never mask a raw clinical measurement (a laboratory value, an
+imaging or pathology finding, a test score, a stage): the patient could not
+answer a question about it, so masking it measures nothing. Such information may
+only be masked through a sentence that states what the patient was told about
+it. For each fact return:
   * `field`: a short snake_case name, e.g. attack_frequency; every fact of a
     record must use a different name;
   * `sentence_indices`: the 0-based indices of the sentences that state it, and

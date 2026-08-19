@@ -97,3 +97,4 @@ def _hermetic_llm_env(monkeypatch):
 
     monkeypatch.setattr("trialmatch.cli.load_dotenv", _noop_load_dotenv)
     monkeypatch.setattr("trialmatch.eval.bench.load_dotenv", _noop_load_dotenv)
+    monkeypatch.setattr("trialmatch.eval.masked.load_dotenv", _noop_load_dotenv)

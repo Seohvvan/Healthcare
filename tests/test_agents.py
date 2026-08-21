@@ -442,6 +442,28 @@ def test_assess_trial_maps_llm_output_and_defaults_missing_to_unknown() -> None:
     ]
 
 
+def test_matcher_prompt_states_both_hard_safety_rules_verbatim() -> None:
+    """The two rules the ranker's evidence backstop mirrors, asserted whole.
+
+    A substring such as "without evidence" pins vocabulary, not the contract, so
+    these are the full rule sentences; only line wrapping is normalised away, so
+    the prompt stays free to re-wrap.
+    """
+    system = " ".join(prompts.MATCHER_SYSTEM.split())
+
+    # "met" is never licensed by inference alone.
+    assert 'Never label a criterion "met" from inference alone.' in system
+    # "not_met" on an inclusion criterion needs a positive contradiction.
+    assert (
+        '"not_met" on an INCLUSION criterion: only when the description '
+        "positively contradicts the criterion." in system
+    )
+    assert (
+        "Silence, or the absence of any mention, is never enough to decide that "
+        "an inclusion criterion is not met." in system
+    )
+
+
 def test_assess_trial_without_criteria_skips_the_llm() -> None:
     llm = FakeLLM()
     trial = make_trial(eligibility_text="")
@@ -470,12 +492,31 @@ def build_parsed(nct_id: str, n_inclusion: int, n_exclusion: int) -> ParsedCrite
     )
 
 
-def build_assessment(nct_id: str, labels: dict[str, EligibilityLabel]) -> TrialAssessment:
+def build_assessment(
+    nct_id: str,
+    labels: dict[str, EligibilityLabel],
+    *,
+    ungrounded: frozenset[str] = frozenset(),
+) -> TrialAssessment:
+    """Verdicts carry evidence unless their id is listed in `ungrounded`.
+
+    The ranker discards an evidence-less met/cleared verdict (its backstop), so a
+    fixture meaning "the matcher decided this" must quote something.
+    """
     return TrialAssessment(
         patient_id="p1",
         nct_id=nct_id,
         verdicts=[
-            CriterionVerdict(criterion_id=cid, label=label) for cid, label in labels.items()
+            CriterionVerdict(
+                criterion_id=cid,
+                label=label,
+                evidence=(
+                    []
+                    if label is EligibilityLabel.UNKNOWN or cid in ungrounded
+                    else ["quoted from the note"]
+                ),
+            )
+            for cid, label in labels.items()
         ],
         unknown_criterion_ids=[
             cid for cid, label in labels.items() if label is EligibilityLabel.UNKNOWN
@@ -498,6 +539,42 @@ def test_aggregate_exclusion_met_is_excluded() -> None:
     assert result.score == RANKING.excluded_score
 
 
+def test_aggregate_settled_labels_ignore_cleared_exclusions() -> None:
+    """Rules 1 and 2 keep their scores: only rule 3 sees the exclusion term."""
+    parsed = build_parsed("NCT1", 2, 2)
+    excluded = aggregate(
+        build_assessment(
+            "NCT1",
+            {
+                "NCT1:inclusion:0": EligibilityLabel.MET,
+                "NCT1:inclusion:1": EligibilityLabel.MET,
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:1": EligibilityLabel.MET,
+            },
+        ),
+        parsed,
+        RANKING,
+    )
+    not_relevant = aggregate(
+        build_assessment(
+            "NCT1",
+            {
+                "NCT1:inclusion:0": EligibilityLabel.MET,
+                "NCT1:inclusion:1": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:1": EligibilityLabel.NOT_MET,
+            },
+        ),
+        parsed,
+        RANKING,
+    )
+
+    assert excluded.trial_label is TrialLabel.EXCLUDED
+    assert excluded.score == RANKING.excluded_score
+    assert not_relevant.trial_label is TrialLabel.NOT_RELEVANT
+    assert not_relevant.score == pytest.approx(0.5 - 1.0)
+
+
 def test_aggregate_all_inclusion_met_no_unknowns_is_eligible() -> None:
     parsed = build_parsed("NCT1", 2, 1)
     assessment = build_assessment(
@@ -510,6 +587,8 @@ def test_aggregate_all_inclusion_met_no_unknowns_is_eligible() -> None:
     )
     result = aggregate(assessment, parsed, RANKING)
     assert result.trial_label is TrialLabel.ELIGIBLE
+    # Every inclusion met and every exclusion cleared: the exclusion term is
+    # normalised away, so a fully resolved eligible trial still tops out at 1.0.
     assert result.score == pytest.approx(1.0)
 
 
@@ -539,8 +618,12 @@ def test_aggregate_unknown_stays_undetermined_and_is_penalised() -> None:
         },
     )
     result = aggregate(assessment, parsed, RANKING)
+    weight = RANKING.exclusion_cleared_weight
     assert result.trial_label is None  # candidate for a clarifying question
-    assert result.score == pytest.approx(0.75 - RANKING.unknown_penalty * 0.25)
+    # No exclusion criteria: the cleared fraction is vacuously 1.0.
+    assert result.score == pytest.approx(
+        (0.75 + weight) / (1 + weight) - RANKING.unknown_penalty * 0.25
+    )
 
 
 def test_aggregate_unknown_exclusion_blocks_eligible_label() -> None:
@@ -554,7 +637,189 @@ def test_aggregate_unknown_exclusion_blocks_eligible_label() -> None:
     )
     result = aggregate(assessment, parsed, RANKING)
     assert result.trial_label is None
-    assert result.score == pytest.approx(1.0)
+    # Changed with the exclusion-cleared term: the single exclusion is still
+    # UNKNOWN, so the trial no longer collects the exclusion share of the score.
+    assert result.score == pytest.approx(1.0 / (1 + RANKING.exclusion_cleared_weight))
+
+
+def test_aggregate_cleared_exclusions_outrank_unknown_ones() -> None:
+    """A confirmed-cleared exclusion is positive evidence, at equal inclusions."""
+    parsed = build_parsed("NCT1", 2, 2)
+    labels = {
+        "NCT1:inclusion:0": EligibilityLabel.MET,
+        "NCT1:inclusion:1": EligibilityLabel.UNKNOWN,
+    }
+    cleared = aggregate(
+        build_assessment(
+            "NCT1",
+            labels
+            | {
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:1": EligibilityLabel.NOT_MET,
+            },
+        ),
+        parsed,
+        RANKING,
+    )
+    unknown = aggregate(
+        build_assessment(
+            "NCT1",
+            labels
+            | {
+                "NCT1:exclusion:0": EligibilityLabel.UNKNOWN,
+                "NCT1:exclusion:1": EligibilityLabel.UNKNOWN,
+            },
+        ),
+        parsed,
+        RANKING,
+    )
+
+    # Both stay undetermined: the ordering signal is the score, not the label.
+    assert cleared.trial_label is None and unknown.trial_label is None
+    assert cleared.score > unknown.score
+    weight = RANKING.exclusion_cleared_weight
+    penalty = RANKING.unknown_penalty * 0.5
+    assert cleared.score == pytest.approx((0.5 + weight) / (1 + weight) - penalty)
+    assert unknown.score == pytest.approx(0.5 / (1 + weight) - penalty)
+
+
+def test_aggregate_partly_cleared_exclusions_sit_between() -> None:
+    parsed = build_parsed("NCT1", 1, 2)
+    result = aggregate(
+        build_assessment(
+            "NCT1",
+            {
+                "NCT1:inclusion:0": EligibilityLabel.MET,
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:1": EligibilityLabel.UNKNOWN,
+            },
+        ),
+        parsed,
+        RANKING,
+    )
+    weight = RANKING.exclusion_cleared_weight
+    assert result.trial_label is None
+    assert result.score == pytest.approx((1.0 + weight * 0.5) / (1 + weight))
+
+
+def test_aggregate_no_exclusions_scores_like_all_exclusions_cleared() -> None:
+    """Vacuous clearing, stated as intended behaviour, not as an accident.
+
+    A trial with no exclusion criteria has nothing left to clear, so it collects
+    the same exclusion share as a trial whose exclusions were all confirmed
+    cleared. Rewarding the resolved case while leaving the absent case unrewarded
+    would penalise trials for having a short exclusion list.
+    """
+    inclusions = {
+        "NCT1:inclusion:0": EligibilityLabel.MET,
+        "NCT1:inclusion:1": EligibilityLabel.UNKNOWN,
+    }
+    none = aggregate(
+        build_assessment("NCT1", inclusions), build_parsed("NCT1", 2, 0), RANKING
+    )
+    all_cleared = aggregate(
+        build_assessment(
+            "NCT1",
+            inclusions
+            | {
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:1": EligibilityLabel.NOT_MET,
+            },
+        ),
+        build_parsed("NCT1", 2, 2),
+        RANKING,
+    )
+
+    weight = RANKING.exclusion_cleared_weight
+    expected = (0.5 + weight) / (1 + weight) - RANKING.unknown_penalty * 0.5
+    assert none.trial_label is None and all_cleared.trial_label is None
+    assert none.score == pytest.approx(expected)
+    assert all_cleared.score == pytest.approx(expected)
+
+
+def test_aggregate_zero_inclusion_criteria_scores_the_exclusion_share_only() -> None:
+    """Documented vacuous case: nothing to satisfy, every exclusion cleared."""
+    parsed = build_parsed("NCT1", 0, 2)
+    result = aggregate(
+        build_assessment(
+            "NCT1",
+            {
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:1": EligibilityLabel.NOT_MET,
+            },
+        ),
+        parsed,
+        RANKING,
+    )
+    weight = RANKING.exclusion_cleared_weight
+    # Eligible, but it never earns the inclusion share, so it stays below 1.0.
+    assert result.trial_label is TrialLabel.ELIGIBLE
+    assert result.score == pytest.approx(weight / (1 + weight))
+
+
+def test_aggregate_discards_verdicts_that_quote_no_evidence() -> None:
+    """The evidence backstop: an ungrounded met/cleared verdict reads as unknown.
+
+    The same labels with evidence would be a fully resolved ELIGIBLE trial at
+    score 1.0; without it the trial stays undetermined, earns neither the met nor
+    the cleared share, and takes the unknown penalty.
+    """
+    parsed = build_parsed("NCT1", 1, 1)
+    labels = {
+        "NCT1:inclusion:0": EligibilityLabel.MET,
+        "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+    }
+    grounded = aggregate(build_assessment("NCT1", labels), parsed, RANKING)
+    ungrounded = aggregate(
+        build_assessment(
+            "NCT1", labels, ungrounded=frozenset({"NCT1:inclusion:0", "NCT1:exclusion:0"})
+        ),
+        parsed,
+        RANKING,
+    )
+
+    assert grounded.trial_label is TrialLabel.ELIGIBLE
+    assert grounded.score == pytest.approx(1.0)
+    assert ungrounded.trial_label is None  # still a clarifying-question target
+    assert ungrounded.score == pytest.approx(0.0 - RANKING.unknown_penalty)
+
+
+def test_aggregate_evidence_backstop_leaves_the_harmful_directions_alone() -> None:
+    """An exclusion MET and an inclusion NOT_MET settle a trial without evidence.
+
+    Requiring a quote there would let a missing quote upgrade a trial we would
+    not recommend, which is the wrong direction to be permissive in.
+    """
+    parsed = build_parsed("NCT1", 1, 1)
+    excluded = aggregate(
+        build_assessment(
+            "NCT1",
+            {
+                "NCT1:inclusion:0": EligibilityLabel.MET,
+                "NCT1:exclusion:0": EligibilityLabel.MET,
+            },
+            ungrounded=frozenset({"NCT1:inclusion:0", "NCT1:exclusion:0"}),
+        ),
+        parsed,
+        RANKING,
+    )
+    not_relevant = aggregate(
+        build_assessment(
+            "NCT1",
+            {
+                "NCT1:inclusion:0": EligibilityLabel.NOT_MET,
+                "NCT1:exclusion:0": EligibilityLabel.NOT_MET,
+            },
+            ungrounded=frozenset({"NCT1:inclusion:0", "NCT1:exclusion:0"}),
+        ),
+        parsed,
+        RANKING,
+    )
+
+    assert excluded.trial_label is TrialLabel.EXCLUDED
+    assert excluded.score == RANKING.excluded_score
+    assert not_relevant.trial_label is TrialLabel.NOT_RELEVANT
+    assert not_relevant.score == pytest.approx(0.0 - 1.0)
 
 
 def test_aggregate_unknown_penalty_orders_more_unknowns_lower() -> None:
@@ -592,8 +857,11 @@ def test_aggregate_treats_missing_verdicts_as_unknown() -> None:
     parsed = build_parsed("NCT1", 2, 0)
     assessment = build_assessment("NCT1", {"NCT1:inclusion:0": EligibilityLabel.MET})
     result = aggregate(assessment, parsed, RANKING)
+    weight = RANKING.exclusion_cleared_weight
     assert result.trial_label is None
-    assert result.score == pytest.approx(0.5 - RANKING.unknown_penalty * 0.5)
+    assert result.score == pytest.approx(
+        (0.5 + weight) / (1 + weight) - RANKING.unknown_penalty * 0.5
+    )
 
 
 def test_aggregate_demographic_mismatch_is_not_relevant() -> None:
@@ -909,3 +1177,31 @@ def test_build_report_marks_undetermined_trials() -> None:
     report = build_report(make_profile(), [assessment], {})
     assert "미정 (추가 확인 필요)" in report
     assert "(제목 정보 없음)" in report
+
+
+def test_aggregate_lists_ungrounded_criteria_as_unknown_question_targets() -> None:
+    """A backstop-downgraded verdict must reopen its criterion for questioning,
+    or the trial stays undetermined with nothing left to ask about."""
+    parsed = ParsedCriteria(
+        nct_id="NCT1",
+        inclusion=[criterion("NCT1:inclusion:0", CriterionType.INCLUSION)],
+        exclusion=[criterion("NCT1:exclusion:0", CriterionType.EXCLUSION)],
+    )
+    assessment = TrialAssessment(
+        patient_id="p1",
+        nct_id="NCT1",
+        verdicts=[
+            CriterionVerdict(
+                criterion_id="NCT1:inclusion:0", label=EligibilityLabel.MET, evidence=[]
+            ),
+            CriterionVerdict(
+                criterion_id="NCT1:exclusion:0", label=EligibilityLabel.NOT_MET, evidence=[]
+            ),
+        ],
+        unknown_criterion_ids=[],  # the matcher saw no raw UNKNOWNs
+    )
+
+    result = aggregate(assessment, parsed, RANKING)
+
+    assert result.trial_label is None
+    assert set(result.unknown_criterion_ids) == {"NCT1:inclusion:0", "NCT1:exclusion:0"}

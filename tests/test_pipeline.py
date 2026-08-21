@@ -102,7 +102,13 @@ PROFILE_EXTRACTION = ProfileExtraction(
 
 
 def verdict(criterion_id: str, label: EligibilityLabel) -> CriterionAssessment:
-    return CriterionAssessment(criterion_id=criterion_id, label=label, explanation="because")
+    """A decided verdict quotes evidence; the ranker discards ones that do not."""
+    return CriterionAssessment(
+        criterion_id=criterion_id,
+        label=label,
+        evidence=[] if label is EligibilityLabel.UNKNOWN else ["quoted from the note"],
+        explanation="because",
+    )
 
 
 def schemas_called(llm: FakeLLM) -> list[str]:
@@ -364,7 +370,11 @@ def test_question_loop_reassesses_only_trials_with_unknowns_and_improves_them() 
     )
     before = {a.nct_id: a for a in baseline.ranked}["NCT0001"]
     assert before.trial_label is None
-    assert before.score == pytest.approx(0.4)  # 1 of 2 inclusion met, 1 unknown
+    # 1 of 2 inclusion met, 1 unknown, the single exclusion confirmed cleared.
+    weight = SETTINGS.ranking.exclusion_cleared_weight
+    assert before.score == pytest.approx(
+        (0.5 + weight) / (1 + weight) - SETTINGS.ranking.unknown_penalty * 0.5
+    )
 
     llm = ScriptedLLM(question_loop_scripts(EligibilityLabel.MET))
     recommendation, run_log = run_pipeline(
@@ -435,7 +445,11 @@ def test_question_loop_stops_when_the_patient_does_not_know() -> None:
 
     assert len(matcher_calls(llm)) == 2  # no re-assessment without new information
     assert run_log["rounds"][0]["reassessed"] == []
-    assert {a.nct_id: a for a in recommendation.ranked}["NCT0001"].score == pytest.approx(0.4)
+    # Unchanged round-1 score: 1 of 2 inclusion met, 1 unknown, exclusion cleared.
+    weight = SETTINGS.ranking.exclusion_cleared_weight
+    assert {a.nct_id: a for a in recommendation.ranked}["NCT0001"].score == pytest.approx(
+        (0.5 + weight) / (1 + weight) - SETTINGS.ranking.unknown_penalty * 0.5
+    )
 
 
 def test_question_loop_ignores_a_settled_trial_that_still_has_unknowns() -> None:

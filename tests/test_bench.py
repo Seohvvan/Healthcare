@@ -391,7 +391,11 @@ LLM_QRELS = {"1": {"NCT01": 2, "NCT02": 1, "NCT03": 0, "NCT04": 2, "NCT05": 1}}
 
 
 def _batch(nct_id: str, labels: list[EligibilityLabel]) -> AssessmentBatch:
-    """Verdicts for the three criteria of `LLM_CRITERIA`, in order."""
+    """Verdicts for the three criteria of `LLM_CRITERIA`, in order.
+
+    Decided verdicts quote evidence: the ranker reads an evidence-less met or
+    cleared verdict as undecided.
+    """
     criterion_ids = [
         f"{nct_id}:inclusion:0",
         f"{nct_id}:inclusion:1",
@@ -399,7 +403,11 @@ def _batch(nct_id: str, labels: list[EligibilityLabel]) -> AssessmentBatch:
     ]
     return AssessmentBatch(
         verdicts=[
-            CriterionAssessment(criterion_id=cid, label=label)
+            CriterionAssessment(
+                criterion_id=cid,
+                label=label,
+                evidence=[] if label is UNKNOWN else ["quoted from the topic"],
+            )
             for cid, label in zip(criterion_ids, labels, strict=True)
         ]
     )

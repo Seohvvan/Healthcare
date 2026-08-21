@@ -94,6 +94,10 @@ class RankingConfig(BaseModel):
     """Deterministic aggregation rules (design.md §3)."""
 
     unknown_penalty: float = 0.2  # per-unknown fraction penalty on the score
+    # Weight of the "exclusions confirmed cleared" fraction relative to the met
+    # inclusion fraction: a ruled-out exclusion is positive evidence of
+    # eligibility, but weaker than a satisfied inclusion criterion.
+    exclusion_cleared_weight: float = 0.3
     excluded_score: float = -1.0
 
 

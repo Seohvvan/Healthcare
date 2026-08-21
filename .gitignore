@@ -18,3 +18,9 @@ build/
 # Secrets — never commit credentials
 .env
 *.key
+
+# Personal AI-tooling config — not part of the team project
+/.claude/
+/CLAUDE.md
+/AGENTS.md
+/harness-bootstrap-prompt.md

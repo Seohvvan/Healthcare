@@ -9,7 +9,6 @@ build/
 .ruff_cache/
 
 # Data snapshots & run logs (large / regenerable; keep out of git)
-/data/
 /runs/
 
 # OS

@@ -49,7 +49,7 @@ from trialmatch.agents.prompts import is_unknown_answer
 from trialmatch.config import Settings, load_dotenv
 from trialmatch.data.store import load_trials
 from trialmatch.data.trec import load_topics_json
-from trialmatch.llm import SupportsLLM, create_llm
+from trialmatch.llm import SupportsLLM, create_llm, format_usage
 from trialmatch.pipeline import run_pipeline, simulator_answer_provider
 from trialmatch.retrieval.bm25 import BM25Index
 from trialmatch.schemas import ParsedCriteria, TrialRecord
@@ -914,8 +914,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         }
     )
+    llm = create_llm(settings.models)
     result = run_masked_eval(
-        create_llm(settings.models),
+        llm,
         load_patients(args.patients),
         load_trials(args.trials),
         BM25Index.load(args.index),
@@ -930,6 +931,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         target = f"{error['patient_id']}/{field}" if field else error["patient_id"]
         print(f"error: {target} ({error['stage']}): {error['error']}")
     print(format_table(result))
+    usage_line = format_usage(llm)  # None unless the client tracks token usage
+    if usage_line:
+        print(usage_line)
     if args.save_log:
         print(f"result log: {save_masked_result(result, settings)}")
     return 0

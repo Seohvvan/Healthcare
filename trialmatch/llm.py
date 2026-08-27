@@ -12,13 +12,67 @@ change in any agent or pipeline code. Pick one with `create_llm(models)`.
 
 from __future__ import annotations
 
+import logging
+import os
+import time
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from trialmatch.config import ModelConfig
 
-__all__ = ["GeminiClient", "LLMClient", "SupportsLLM", "create_llm"]
+__all__ = ["GeminiClient", "LLMClient", "SupportsLLM", "create_llm", "format_usage"]
+
+logger = logging.getLogger(__name__)
+
+# Free-tier defaults. The Gemini free tier enforces a per-minute request quota
+# and answers excess traffic with 429 RESOURCE_EXHAUSTED, so `GeminiClient`
+# paces itself to `GEMINI_RPM` requests per minute and backs off on a 429
+# instead of relying on the SDK's own retry (which did not save a real run).
+DEFAULT_GEMINI_RPM = 10
+GEMINI_RETRY_WAITS: tuple[float, ...] = (30.0, 60.0, 120.0)
+_RATE_LIMIT_STATUS = 429
+
+# usage_summary() key -> the `usage_metadata` attribute it accumulates.
+_USAGE_ATTRIBUTES = {
+    "prompt_tokens": "prompt_token_count",
+    "output_tokens": "candidates_token_count",
+    "thinking_tokens": "thoughts_token_count",
+}
+_USAGE_KEYS = ("calls", *_USAGE_ATTRIBUTES)
+
+
+def _gemini_rpm() -> int:
+    """Requests-per-minute budget from `GEMINI_RPM` (default `DEFAULT_GEMINI_RPM`).
+
+    Unset, non-numeric and non-positive values all fall back to the default: a
+    typo must not disable pacing (0 or -1 would mean "no interval") on a tier
+    whose quota is the thing that ends runs.
+    """
+    raw = os.environ.get("GEMINI_RPM")
+    try:
+        rpm = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return DEFAULT_GEMINI_RPM
+    return rpm if rpm > 0 else DEFAULT_GEMINI_RPM
+
+
+def format_usage(llm: Any) -> str | None:
+    """One-line token report for a client that tracks usage, else `None`.
+
+    Every runner prints the line through this one function so the format lives
+    in a single place; `LLMClient` and the test fakes expose no `usage_summary`
+    and simply get `None`.
+    """
+    summary = getattr(llm, "usage_summary", None)
+    if summary is None:
+        return None
+    usage = summary()
+    return (
+        f"llm usage: {usage['calls']} calls, "
+        f"{usage['prompt_tokens']} prompt + {usage['output_tokens']} output "
+        f"+ {usage['thinking_tokens']} thinking tokens"
+    )
 
 
 @runtime_checkable
@@ -127,10 +181,19 @@ class GeminiClient:
     created lazily on first use, so importing this module needs neither the SDK
     nor credentials; the SDK reads `GOOGLE_API_KEY` / `GEMINI_API_KEY` from the
     environment — never hardcode a key.
+
+    Every call goes through `_generate`, which makes the client free-tier
+    friendly: it paces requests to `GEMINI_RPM` per minute (read once here),
+    retries a 429 with growing waits, and accumulates token usage so a run can
+    report what it spent. Single-threaded use is assumed — the pipeline issues
+    one call at a time, so the pacing state needs no lock.
     """
 
     def __init__(self, client: Any | None = None) -> None:
         self._client = client
+        self._min_interval = 60.0 / _gemini_rpm()
+        self._last_call_at: float | None = None
+        self._usage = dict.fromkeys(_USAGE_KEYS, 0)
 
     @property
     def client(self) -> Any:
@@ -159,6 +222,99 @@ class GeminiClient:
             ) from exc
         return types
 
+    @staticmethod
+    def _client_error() -> type[Exception] | None:
+        """`google.genai.errors.ClientError`, or `None` when it is unavailable.
+
+        Detection must survive an SDK-less import and an SDK that moved the
+        class, so a failed import is not an error here: `_is_rate_limited`
+        falls back to matching the exception's type name.
+        """
+        try:
+            from google.genai.errors import ClientError
+        except Exception:  # noqa: BLE001 - any import failure degrades to the name check
+            return None
+        return ClientError
+
+    # ----------------------------------------------------------------- #
+    # free-tier plumbing: pacing, 429 backoff, usage accounting
+    # ----------------------------------------------------------------- #
+
+    def _pace(self) -> None:
+        """Sleep until at least `60 / GEMINI_RPM` seconds since the last call."""
+        if self._last_call_at is not None:
+            remaining = self._min_interval - (time.monotonic() - self._last_call_at)
+            if remaining > 0:
+                time.sleep(remaining)
+        self._last_call_at = time.monotonic()
+
+    @classmethod
+    def _is_rate_limited(cls, exc: BaseException) -> bool:
+        """True for a Gemini 429 RESOURCE_EXHAUSTED, whatever shape it arrives in.
+
+        The SDK's error surface has varied across versions (`status_code`,
+        `code`, or only a "429 RESOURCE_EXHAUSTED ..." message), so detection is
+        deliberately liberal — the cost of a false positive is one extra wait,
+        the cost of a false negative is a dead run.
+        """
+        error_type = cls._client_error()
+        if type(exc).__name__ != "ClientError" and not (
+            error_type is not None and isinstance(exc, error_type)
+        ):
+            return False
+        for attribute in ("status_code", "code"):
+            value = getattr(exc, attribute, None)
+            try:
+                if value is not None and int(value) == _RATE_LIMIT_STATUS:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return str(exc).lstrip().startswith(str(_RATE_LIMIT_STATUS))
+
+    def _record_usage(self, response: Any) -> None:
+        """Accumulate this response's token counts; a missing block still counts.
+
+        `usage_metadata` and each of its counters may be `None` (blocked or
+        cached responses); that may lower the token totals but never the call
+        count — an under-reported call count would understate the quota spend.
+        """
+        self._usage["calls"] += 1
+        metadata = getattr(response, "usage_metadata", None)
+        if metadata is None:
+            return
+        for key, attribute in _USAGE_ATTRIBUTES.items():
+            value = getattr(metadata, attribute, None)
+            if isinstance(value, int):
+                self._usage[key] += value
+
+    def usage_summary(self) -> dict[str, int]:
+        """Calls and tokens spent by this client so far (a copy, safe to keep)."""
+        return dict(self._usage)
+
+    def _generate(self, **kwargs: Any) -> Any:
+        """One paced, 429-retried, usage-accounted `generate_content` call."""
+        attempt = 0
+        while True:
+            self._pace()
+            try:
+                response = self.client.models.generate_content(**kwargs)
+            except Exception as exc:  # re-raised unless it is a retryable 429
+                if attempt >= len(GEMINI_RETRY_WAITS) or not self._is_rate_limited(exc):
+                    raise
+                wait = GEMINI_RETRY_WAITS[attempt]
+                attempt += 1
+                logger.warning(
+                    "Gemini rate limit (429), retry %d/%d in %.0fs: %s",
+                    attempt,
+                    len(GEMINI_RETRY_WAITS),
+                    wait,
+                    exc,
+                )
+                time.sleep(wait)
+                continue
+            self._record_usage(response)
+            return response
+
     def structured(
         self,
         *,
@@ -177,7 +333,7 @@ class GeminiClient:
         """
         del cache_system  # interface parity: Gemini 2.5 caches implicitly
         types = self._types()
-        response = self.client.models.generate_content(
+        response = self._generate(
             model=model,
             contents=user,
             config=types.GenerateContentConfig(
@@ -215,7 +371,7 @@ class GeminiClient:
     ) -> str:
         """Return the text of a plain completion (empty string when blocked)."""
         types = self._types()
-        response = self.client.models.generate_content(
+        response = self._generate(
             model=model,
             contents=user,
             config=types.GenerateContentConfig(

@@ -23,3 +23,7 @@ build/
 /CLAUDE.md
 /AGENTS.md
 /harness-bootstrap-prompt.md
+
+# TREC 2021 corpus: 131MB (> GitHub's 100MB limit); re-download from
+# https://ftp.ncbi.nlm.nih.gov/pub/lu/TrialGPT/trec_2021_corpus.jsonl
+/data/trec_2021_corpus.jsonl

@@ -1,0 +1,546 @@
+{
+  "patients": [
+    {
+      "patient_id": "M001",
+      "condition": "acute pancreatitis",
+      "sentences": [
+        "I am a 54-year-old man who has been struggling with chronic alcohol use for the past decade.",
+        "I arrived at the emergency department today because I have been suffering from severe epigastric pain that radiates straight through to my back.",
+        "This intense pain is accompanied by persistent nausea and frequent vomiting.",
+        "My doctor told me that my serum lipase and amylase levels were markedly elevated.",
+        "He explained that these results confirm a diagnosis of acute pancreatitis.",
+        "I have never experienced this type of abdominal pain before in my life.",
+        "I do not have any other chronic medical conditions like diabetes or hypertension.",
+        "I am not currently taking any prescription medications for my health.",
+        "I have never undergone any surgical procedures on my stomach or pancreas.",
+        "I do not have any known allergies to medications or food."
+      ],
+      "facts": [
+        {
+          "field": "alcohol_history",
+          "sentence_indices": [
+            0
+          ],
+          "keywords": [
+            "chronic alcohol use",
+            "past decade"
+          ]
+        },
+        {
+          "field": "current_medications",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "not currently taking",
+            "prescription medications"
+          ]
+        },
+        {
+          "field": "allergy_status",
+          "sentence_indices": [
+            9
+          ],
+          "keywords": [
+            "known allergies",
+            "medications or food"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M002",
+      "condition": "hyperthyroidism",
+      "sentences": [
+        "I am a 29-year-old woman currently struggling with persistent health issues.",
+        "For the past four months, I have been dealing with frequent, intermittent palpitations.",
+        "I also suffer from significant heat intolerance that makes daily life difficult.",
+        "My doctor noted that I have experienced unintentional weight loss of fifteen pounds recently.",
+        "During my physical exam, the physician observed a fine tremor in my hands.",
+        "The doctor also confirmed that I have tachycardia with a resting heart rate of 110 beats per minute.",
+        "My physician told me that my thyroid gland is diffusely enlarged and non-tender.",
+        "I have no history of other chronic medical conditions or autoimmune diseases.",
+        "I am currently taking no medications for my thyroid symptoms.",
+        "I have never received any prior treatments like radioactive iodine or surgery for this condition.",
+        "I am currently using oral contraceptives to prevent pregnancy.",
+        "I do not smoke cigarettes or consume any alcohol."
+      ],
+      "facts": [
+        {
+          "field": "symptom_duration",
+          "sentence_indices": [
+            1
+          ],
+          "keywords": [
+            "four months"
+          ]
+        },
+        {
+          "field": "contraception_status",
+          "sentence_indices": [
+            10
+          ],
+          "keywords": [
+            "oral contraceptives",
+            "prevent pregnancy"
+          ]
+        },
+        {
+          "field": "prior_treatments",
+          "sentence_indices": [
+            9
+          ],
+          "keywords": [
+            "radioactive iodine",
+            "surgery"
+          ]
+        },
+        {
+          "field": "smoking_status",
+          "sentence_indices": [
+            11
+          ],
+          "keywords": [
+            "smoke cigarettes",
+            "consume any alcohol"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M003",
+      "condition": "Nephrotic Syndrome",
+      "sentences": [
+        "I am a 7-year-old boy who has been dealing with some concerning health issues lately.",
+        "About three weeks ago, I started noticing significant swelling around my eyes every morning.",
+        "My parents also became worried when they saw that my urine looked very frothy.",
+        "We went to see my pediatrician who performed a urinalysis to check what was going on.",
+        "The doctor told me that my urine protein was very high, which explained the foam.",
+        "He also mentioned that there was no blood found in my urine sample.",
+        "After running some blood work, the doctor told me that my serum albumin was low.",
+        "I have not had any other major illnesses or chronic conditions in my life.",
+        "I am currently not taking any daily medications for this or any other health problem.",
+        "I have never been hospitalized for kidney issues before this recent experience.",
+        "My doctor has not started me on any specific treatments like steroids yet."
+      ],
+      "facts": [
+        {
+          "field": "symptom_duration",
+          "sentence_indices": [
+            1
+          ],
+          "keywords": [
+            "three weeks ago"
+          ]
+        },
+        {
+          "field": "current_medications",
+          "sentence_indices": [
+            8
+          ],
+          "keywords": [
+            "not taking",
+            "daily medications"
+          ]
+        },
+        {
+          "field": "prior_hospitalizations",
+          "sentence_indices": [
+            9
+          ],
+          "keywords": [
+            "never been hospitalized"
+          ]
+        },
+        {
+          "field": "prior_treatments",
+          "sentence_indices": [
+            10
+          ],
+          "keywords": [
+            "not started",
+            "specific treatments"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M004",
+      "condition": "bladder cancer",
+      "sentences": [
+        "I am a 68-year-old man who has been smoking a pack of cigarettes every day for the last forty years.",
+        "I recently noticed painless gross hematuria when I went to the bathroom.",
+        "My primary care doctor referred me to a urologist for further evaluation.",
+        "The urologist ordered a CT urography scan to look at my urinary tract.",
+        "The doctor told me that the imaging showed a mass in my bladder wall.",
+        "I have never had any prior history of bladder issues or urinary tract infections.",
+        "I do not have any other chronic medical conditions like diabetes or hypertension.",
+        "I am currently not taking any prescription medications on a daily basis.",
+        "I have never undergone any surgical procedures or treatments for cancer in the past.",
+        "I do not have any known allergies to medications or environmental factors."
+      ],
+      "facts": [
+        {
+          "field": "smoking_history",
+          "sentence_indices": [
+            0
+          ],
+          "keywords": [
+            "smoking",
+            "pack of cigarettes",
+            "forty years"
+          ]
+        },
+        {
+          "field": "current_medications",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "prescription medications",
+            "daily basis"
+          ]
+        },
+        {
+          "field": "prior_surgeries",
+          "sentence_indices": [
+            8
+          ],
+          "keywords": [
+            "surgical procedures",
+            "treatments for cancer"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M005",
+      "condition": "migraine with aura",
+      "sentences": [
+        "I am a 34-year-old woman who has been struggling with severe headaches for the past six years.",
+        "My doctor told me that my condition is migraine with aura after reviewing my history of visual scotomata.",
+        "These episodes occur about three times every month.",
+        "Each headache typically lasts for approximately eight hours.",
+        "I experience intense unilateral throbbing pain during every single attack.",
+        "My symptoms always include significant photophobia and phonophobia.",
+        "I also suffer from persistent nausea whenever a headache starts.",
+        "I currently take sumatriptan as needed to manage the pain.",
+        "I previously tried taking propranolol daily but it did not help my symptoms.",
+        "I do not have any other chronic medical conditions.",
+        "I am currently using an intrauterine device for contraception.",
+        "I have no known drug allergies."
+      ],
+      "facts": [
+        {
+          "field": "attack_frequency",
+          "sentence_indices": [
+            2
+          ],
+          "keywords": [
+            "three times",
+            "every month"
+          ]
+        },
+        {
+          "field": "current_medication",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "take sumatriptan",
+            "manage the pain"
+          ]
+        },
+        {
+          "field": "contraception_status",
+          "sentence_indices": [
+            10
+          ],
+          "keywords": [
+            "intrauterine device",
+            "contraception"
+          ]
+        },
+        {
+          "field": "prior_treatment",
+          "sentence_indices": [
+            8
+          ],
+          "keywords": [
+            "tried taking",
+            "propranolol"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M006",
+      "condition": "rhino-orbital-cerebral mucormycosis",
+      "sentences": [
+        "I am a 45-year-old man who has been struggling with type 2 diabetes for the past decade.",
+        "My doctor told me that my blood sugar control has been very poor lately.",
+        "I started experiencing severe facial pain and fever about four days ago.",
+        "I noticed a black necrotic eschar on my nasal mucosa yesterday morning.",
+        "My left eye has developed significant periorbital swelling that makes it hard to see.",
+        "I have no history of recent travel or exposure to sick contacts.",
+        "I am currently taking metformin twice daily to manage my glucose levels.",
+        "I have never been hospitalized for my diabetes before this week.",
+        "I do not smoke cigarettes or drink alcohol.",
+        "I have no known drug allergies."
+      ],
+      "facts": [
+        {
+          "field": "diabetes_duration",
+          "sentence_indices": [
+            0
+          ],
+          "keywords": [
+            "past decade"
+          ]
+        },
+        {
+          "field": "symptom_onset",
+          "sentence_indices": [
+            2
+          ],
+          "keywords": [
+            "four days ago"
+          ]
+        },
+        {
+          "field": "current_medication",
+          "sentence_indices": [
+            6
+          ],
+          "keywords": [
+            "metformin",
+            "twice daily"
+          ]
+        },
+        {
+          "field": "hospitalization_history",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "never been hospitalized"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M007",
+      "condition": "pyloric stenosis",
+      "sentences": [
+        "My three-month-old son has been suffering from frequent projectile non-bilious vomiting immediately after every feeding for the past two weeks.",
+        "I noticed visible peristaltic waves moving across his upper abdomen during his meals.",
+        "His pediatrician felt a firm olive-shaped mass in his epigastrium during the physical examination.",
+        "The doctor told me that his blood tests showed a severe hypochloremic hypokalemic metabolic alkalosis.",
+        "He has no history of fever or diarrhea to suggest a viral infection.",
+        "He is currently exclusively breastfed and has not started any solid foods.",
+        "He has no known drug allergies and has not been hospitalized before this incident.",
+        "He is not taking any medications at home.",
+        "The doctor explained that this condition requires a surgical procedure to fix the blockage.",
+        "I am very worried about his weight loss over the last fourteen days."
+      ],
+      "facts": [
+        {
+          "field": "vomiting_duration",
+          "sentence_indices": [
+            0
+          ],
+          "keywords": [
+            "past two weeks"
+          ]
+        },
+        {
+          "field": "feeding_method",
+          "sentence_indices": [
+            5
+          ],
+          "keywords": [
+            "exclusively breastfed"
+          ]
+        },
+        {
+          "field": "medication_status",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "not taking any medications"
+          ]
+        },
+        {
+          "field": "weight_loss_duration",
+          "sentence_indices": [
+            9
+          ],
+          "keywords": [
+            "last fourteen days"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M008",
+      "condition": "Idiopathic Pulmonary Fibrosis",
+      "sentences": [
+        "I am a 60-year-old woman who has been struggling with worsening shortness of breath for the past eight months.",
+        "I also developed a persistent dry cough that does not seem to go away.",
+        "My doctor noticed that my fingers have started to look clubbed at the tips.",
+        "I underwent a chest CT scan last month to investigate these symptoms.",
+        "The radiologist told me that the scan showed bilateral basal reticular opacities with honeycombing.",
+        "I have never smoked cigarettes in my life.",
+        "I do not have any other chronic medical conditions like diabetes or heart disease.",
+        "I am currently taking no daily medications for my lungs.",
+        "I have not tried any previous treatments like oxygen therapy or pulmonary rehabilitation.",
+        "I am post-menopausal and do not need to worry about contraception."
+      ],
+      "facts": [
+        {
+          "field": "symptom_duration",
+          "sentence_indices": [
+            0
+          ],
+          "keywords": [
+            "eight months"
+          ]
+        },
+        {
+          "field": "smoking_status",
+          "sentence_indices": [
+            5
+          ],
+          "keywords": [
+            "never smoked"
+          ]
+        },
+        {
+          "field": "current_medications",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "no daily medications"
+          ]
+        },
+        {
+          "field": "prior_treatments",
+          "sentence_indices": [
+            8
+          ],
+          "keywords": [
+            "not tried",
+            "previous treatments"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M009",
+      "condition": "Infectious Mononucleosis",
+      "sentences": [
+        "I am a 19-year-old male currently struggling with persistent illness.",
+        "For the past two weeks, I have been suffering from a high fever and a very painful sore throat.",
+        "I feel extreme fatigue that makes it difficult to get out of bed.",
+        "My doctor noted that I have swollen glands in the back of my neck.",
+        "During my physical exam, the doctor told me that my spleen is enlarged.",
+        "I was told that my monospot test came back positive for mononucleosis.",
+        "I have no history of chronic health conditions or autoimmune disorders.",
+        "I am not currently taking any prescription medications for this condition.",
+        "I have not received any prior treatments for this specific illness.",
+        "I do not smoke cigarettes or consume any alcohol."
+      ],
+      "facts": [
+        {
+          "field": "symptom_duration",
+          "sentence_indices": [
+            1
+          ],
+          "keywords": [
+            "past two weeks"
+          ]
+        },
+        {
+          "field": "current_medications",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "not currently taking",
+            "prescription medications"
+          ]
+        },
+        {
+          "field": "smoking_status",
+          "sentence_indices": [
+            9
+          ],
+          "keywords": [
+            "do not smoke"
+          ]
+        }
+      ]
+    },
+    {
+      "patient_id": "M010",
+      "condition": "Retinal detachment",
+      "sentences": [
+        "I am a 73-year-old man who has been generally healthy until this recent eye issue.",
+        "About three days ago, I suddenly noticed a painless, curtain-like loss of vision in my right eye.",
+        "My doctor told me that my retina had detached from the back of my eye.",
+        "For about two weeks before this happened, I experienced frequent flashes of light in my peripheral vision.",
+        "I also noticed a significant increase in floaters during that same two-week period.",
+        "I have a history of hypertension which I manage with lisinopril daily.",
+        "I do not have any history of diabetes or previous eye surgeries.",
+        "I have never smoked cigarettes in my life.",
+        "I am currently taking no other medications besides my blood pressure pill.",
+        "I have no known allergies to any medications or environmental factors.",
+        "My vision in the left eye remains completely clear and unaffected."
+      ],
+      "facts": [
+        {
+          "field": "symptom_duration",
+          "sentence_indices": [
+            1
+          ],
+          "keywords": [
+            "three days ago"
+          ]
+        },
+        {
+          "field": "current_medication",
+          "sentence_indices": [
+            5,
+            8
+          ],
+          "keywords": [
+            "lisinopril",
+            "blood pressure pill"
+          ]
+        },
+        {
+          "field": "smoking_status",
+          "sentence_indices": [
+            7
+          ],
+          "keywords": [
+            "never smoked"
+          ]
+        },
+        {
+          "field": "prodromal_symptoms",
+          "sentence_indices": [
+            3,
+            4
+          ],
+          "keywords": [
+            "flashes of light",
+            "increase in floaters"
+          ]
+        }
+      ]
+    }
+  ]
+}

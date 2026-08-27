@@ -1,0 +1,30 @@
+Ground truth for patient S005 (used by the Patient Simulator to answer clarifying questions).
+
+The patient is a 34-year-old woman diagnosed with migraine with aura, ongoing for the past 3 years.
+She experiences on average 4 migraine attacks per month, and about 8 headache days per month over the
+last 3 months. She does not have chronic daily headache.
+
+She is not pregnant, not breastfeeding, and not planning to become pregnant; she uses an intrauterine
+device for contraception.
+
+She has no history of heart disease, stroke, peripheral circulation problems, hypertension, epilepsy,
+or seizures, and has no implanted electronic devices such as a pacemaker or defibrillator.
+
+She currently takes no prophylactic (preventive) migraine medication and has never failed a
+prophylactic treatment; no medication type or dose has changed in the last 3 months. She has used
+sumatriptan occasionally for acute attacks with good response and no adverse effects or
+contraindications.
+
+Liver function tests within the last 6 months were normal. No hepatic, renal, or other significant
+medical, neurological, or psychiatric disorder. No known drug hypersensitivities.
+
+She has no depression or other psychiatric illness, no radiculopathy, and no contraindication to
+spinal manipulation or other manual therapy. She has not received chiropractic or physiotherapy
+treatment within the past 12 months. She has not participated in any other clinical study within
+the past 3 months.
+
+Her aura is a typical visual aura (scintillating scotomata) lasting about 20 to 30 minutes and is
+always followed by the headache within an hour. She has never had prolonged aura, hemiplegic
+migraine, brainstem (basilar-type) aura, or a migrainous infarction. She can reliably distinguish
+her migraine attacks from other headache types. Attacks last 4 to 24 hours when untreated, and this
+pattern has been stable for the past 3 years.

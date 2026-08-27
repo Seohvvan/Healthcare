@@ -36,7 +36,7 @@ from trialmatch.data.store import load_trials, write_jsonl
 from trialmatch.data.trec import load_qrels, load_topics_json, load_topics_xml
 from trialmatch.eval.metrics import macro_f1, three_class_accuracy
 from trialmatch.eval.run_trec import evaluate_rankings, format_table
-from trialmatch.llm import SupportsLLM, create_llm
+from trialmatch.llm import SupportsLLM, create_llm, format_usage
 from trialmatch.retrieval.bm25 import BM25Index
 from trialmatch.schemas import TrialAssessment, TrialLabel, TrialRecord
 
@@ -631,8 +631,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # `llm`: build the real client here so importing this module needs no key.
     settings = Settings().with_provider(args.provider)
+    client = create_llm(settings.models)
     result = llm_judged_rerank(
-        create_llm(settings.models),
+        client,
         topics,
         qrels,
         trials,
@@ -656,6 +657,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print()
     print(format_coverage(result["coverage"]))
+    usage_line = format_usage(client)  # None unless the client tracks token usage
+    if usage_line:
+        print(usage_line)
     _write_result(result, args.out)
     return 0
 

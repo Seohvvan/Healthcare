@@ -82,13 +82,15 @@ def _hermetic_llm_env(monkeypatch):
 
     CLI entry points load `<project>/.env` at startup; without this fixture a
     developer's local GEMINI_* overrides would leak into the test process and
-    change what `Settings.with_provider("gemini")` returns mid-suite.
+    change what `Settings.with_provider("gemini")` returns mid-suite — or, for
+    `GEMINI_RPM`, how long `GeminiClient` paces itself.
     """
     for key in (
         "GEMINI_MODEL",
         "GEMINI_EXTRACT_MODEL",
         "GEMINI_REASON_MODEL",
         "GEMINI_REPORT_MODEL",
+        "GEMINI_RPM",
     ):
         monkeypatch.delenv(key, raising=False)
 

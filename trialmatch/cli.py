@@ -14,7 +14,7 @@ from pathlib import Path
 from trialmatch.agents.prompts import SIMULATOR_UNKNOWN_ANSWER
 from trialmatch.config import Settings, load_dotenv
 from trialmatch.data import download_snapshot, load_topics_json, load_trials
-from trialmatch.llm import create_llm
+from trialmatch.llm import create_llm, format_usage
 from trialmatch.pipeline import (
     AnswerProvider,
     run_pipeline,
@@ -171,6 +171,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     )
 
     print(recommendation.report_markdown)
+    usage_line = format_usage(llm)  # None unless the client tracks token usage
+    if usage_line:
+        print(usage_line)
     if args.save_log:
         print(f"run log: {save_run_log(run_log, settings)}")
     return 0
